@@ -103,6 +103,10 @@ class WechatClient(metaclass=ClientBase):
                     continue
                 # self.loop.create_task(self.handler_registry.get(resp_type)(self, msg))
 
+    def retrieve_login_info(self) -> None:
+        self._pending_messages.put(query.get_personal_info())
+        self._pending_messages.put(query.get_contact_list())
+
     async def _send_pending_messages(self, ws) -> None:
         while not self._pending_messages.empty():
             msg = self._pending_messages.get()
@@ -169,18 +173,27 @@ class WechatClient(metaclass=ClientBase):
 
     @register(query.PERSONAL_INFO)
     async def handle_personal_info(self, msg) -> None:
-        self.logged_in = True
+        self.logger.trace(msg)
         self.wx_id = msg.get("content", {}).get("wx_id")
         self.wx_code = msg.get("content", {}).get("wx_code")
         self.wx_name = msg.get("content", {}).get("wx_name")
-        if self.wx_name:
+        if self.wx_id:
+            self.logged_in = True
             self.logger.info(f"User {self.wx_name} ({self.wx_id}) logged in.")
+        elif self.wx_name:
+            self.logged_in = False
+            self.logger.info(f"User {self.wx_name} needs approve to re-logged in, please go to https://{self.ip}:8081/vnc.html")
+        else:
+            self.logger.info(f"No account logged in, please go to https://{self.ip}:8081/vnc.html to log in.")
+
 
     @register(query.USER_LIST)
     async def handle_user_list(self, msg) -> None:
-        self.logger.info(f"Received {len(msg.get('content', []))} contacts")
+        self.logger.trace(msg)
+        count = 0
         for user in msg.get("content", []):
             if wxid := user.get("wxid"):
+                count += 1
                 self._contact_list[WechatID(wxid)] = WechatUser(
                     headimg=user.get("headimg"),
                     name=user.get("name"),
@@ -188,6 +201,7 @@ class WechatClient(metaclass=ClientBase):
                     wxcode=user.get("wxcode"),
                     wxid=WechatID(user.get("wxid")),
                 )
+        self.logger.info(f"Received {count} contacts")
 
     @register(query.AT_MSG)
     async def handle_at_msg(self, msg) -> None:

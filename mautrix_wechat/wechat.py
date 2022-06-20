@@ -36,9 +36,19 @@ class WechatHandler(WechatClient):
 
     async def on_txt_message(self, msg: TxtMessage) -> None:
         print(f"Received txt message: {msg}")
-        # sender = await pu.Puppet.get_by_wxid(msg.user)
-        # receiver = await u.User.get
-        # portal = po.Portal.get_by_wxid(msg.source)
+        sender = await pu.Puppet.get_by_wxid(msg.user)
+        user  = await u.User.get_by_wxid(msg.user)
+        portal = await po.Portal.get_by_wxid(msg.source, create=True)
+        if not portal.mxid:
+            await portal.create_matrix_room()
+            if not portal.mxid:
+                user.log.warning(
+                    f"Failed to create room for incoming message ({msg.timestamp}): {msg.content}"
+                )
+                return
+        await portal.handle_txt_message(msg)
+
+
         # await portal.handle_txt_message(msg)
 
     async def on_pic_message(self, msg: PicMessage) -> None:

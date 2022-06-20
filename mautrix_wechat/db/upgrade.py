@@ -29,7 +29,8 @@ async def upgrade_v1(conn: Connection) -> None:
         wxcode       TEXT,
         custom_mxid  TEXT,
         access_token TEXT,
-        next_batch   TEXT
+        next_batch   TEXT,
+        base_url     TEXT
     )""")
     await conn.execute("""CREATE TABLE message (
         mxid    TEXT NOT NULL,

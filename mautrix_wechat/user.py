@@ -41,3 +41,37 @@ class User(DBUser, BaseUser):
         cls.config = bridge.config
         cls.az = bridge.az
         cls.loop = bridge.loop
+
+    def _postinit(self) -> None:
+        self.by_mxid[self.mxid] = self
+        if self.wxid:
+            self.by_wxid[self.wxid] = self
+
+    @classmethod
+    @async_getter_lock
+    async def get_by_mxid(cls, mxid: UserID, create: bool = False) -> Optional['User']:
+        if pu.Puppet.get_id_from_mxid(mxid) or mxid == cls.az.bot_mxid:
+            return None
+
+        if mxid in cls.by_mxid:
+            return cls.by_mxid[mxid]
+
+        user = cast(cls, await super().get_by_mxid(mxid))
+        if user:
+            user._postinit()
+        elif create:
+            user = cls(mxid)
+            await user.insert()
+            user._postinit()
+        return user
+
+    @classmethod
+    @async_getter_lock
+    async def get_by_wxid(cls, wxid: WechatID) -> Optional['User']:
+        if wxid in cls.by_wxid:
+            return cls.by_wxid
+
+        user = cast(cls, await super().get_by_wxid(wxid))
+        if user:
+            user._postinit()
+        return user

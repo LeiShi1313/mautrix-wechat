@@ -1,3 +1,4 @@
+from optparse import Option
 from typing import (
     Optional,
     Dict,
@@ -12,13 +13,13 @@ from uuid import UUID
 import asyncio
 
 from yarl import URL
-from mautrix.bridge import BasePuppet
+from mautrix.bridge import BasePuppet, async_getter_lock
 from mautrix.appservice import IntentAPI
 from mautrix.types import UserID, SyncToken
 from mautrix.types import UserID, SyncToken, RoomID
 from mautrix.util.simple_template import SimpleTemplate
 
-from mautrix_wechat.db import Puppet as DBPuppet
+from mautrix_wechat.db import Puppet as DBPuppet, puppet
 from mautrix_wechat.config import Config
 from mautrix_wechat import portal as p
 from wesdk.types import WechatID
@@ -78,6 +79,47 @@ class Puppet(DBPuppet, BasePuppet):
             suffix=f":{cls.hs_domain}",
             type=str,
         )
+
+    def _postinit(self) -> None:
+        self.by_wxid[self.wxid] = self
+        if self.custom_mxid:
+            self.by_custom_mxid[self.custom_mxid] = self
+
+    @classmethod
+    @async_getter_lock
+    async def get_by_wxid(cls, wxid: WechatID, create: bool = False) -> Optional["Puppet"]:
+        if not wxid:
+            return None
+        
+        if wxid in cls.by_wxid:
+            return cls.by_wxid[wxid]
+        
+        puppet = cast(Puppet, await super().get_by_wxid(wxid))
+        if puppet:
+            puppet._postinit()
+        elif create:
+            puppet = cls(wxid)
+            await puppet.insert()
+            puppet._postinit()
+        return puppet
+
+    @classmethod
+    @async_getter_lock
+    async def get_by_mxid(cls, mxid: UserID, create: bool = False) -> Optional["Puppet"]:
+        wxid = cls.get_id_from_mxid(mxid)
+        if wxid:
+            return await cls.get_by_wxid(wxid, create)
+        return None
+
+    @classmethod
+    @async_getter_lock
+    async def get_by_custom_mxid(cls, mxid: UserID) -> Optional["Puppet"]:
+        if mxid in cls.by_custom_mxid:
+            return cls.by_custom_mxid[mxid]
+        puppet = cast(Puppet, await super().get_by_custom_mxid(mxid))
+        if puppet:
+            puppet._postinit()
+        return puppet
 
     @classmethod
     def get_id_from_mxid(cls, mxid: UserID) -> Optional[str]:

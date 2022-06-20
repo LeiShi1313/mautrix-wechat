@@ -196,6 +196,10 @@ bridge:
         "example.com": "user"
         "@admin:example.com": "admin"
 
+wechat:
+    wechat_box_ip: 127.0.0.1
+    wechat_box_port: 5555
+
 # Python logging configuration.
 #
 # See section 16.7.2 of the Python documentation for more info:
@@ -222,9 +226,11 @@ logging:
         mau:
             level: DEBUG
         maugclib:
-            level: INFO
+            level: DEBUG
         aiohttp:
             level: INFO
+        websockets:
+            level: INFO
     root:
-        level: DEBUG
+        level: INFO
         handlers: [file, console]

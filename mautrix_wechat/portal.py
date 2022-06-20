@@ -90,17 +90,13 @@ class Portal(DBPortal, BasePortal):
         cls, wxid: WechatID, create: bool = False
     ) -> Optional["Portal"]:
         portal = cast(cls, await super().get_by_wxid(wxid))
-        if portal is not None:
+        if portal:
             await portal._postinit()
-            return portal
-
-        if create:
+        elif create:
             portal = cls(wxid)
             await portal.insert()
             await portal._postinit()
-            return portal
-
-        return None
+        return portal
 
     async def handle_txt_message(self, msg: TxtMessage) -> None:
         if (msg.source, msg.user, msg.content, msg.time) in self._msg_dedup:
@@ -119,6 +115,9 @@ class Portal(DBPortal, BasePortal):
             return
         self.log.debug(f"Start handling message by {msg.user} in {msg.source} at {msg.time}")
         self.log.trace(f"Message content: {msg.content}")
+
+    async def create_matrix_room(self) -> Optional[RoomID]:
+        
 
 
     @classmethod
