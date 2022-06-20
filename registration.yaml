@@ -1,0 +1,13 @@
+id: wechat
+as_token: RKUKxRX90uNKrAF79O-cqGs6LwxasYaxTij0D7WuWe5G6ydTUhOtpx8LnjsgmASE
+hs_token: FiT6xI15bU3cJY0uRe0MdSuoTNinLz32EUGPLTd9XOgK1RGflNqWurSsiBz3uWTr
+namespaces:
+    users:
+    - exclusive: true
+      regex: '@wechat_.*:leishi\.io'
+    - exclusive: true
+      regex: '@wechatbot:leishi\.io'
+    aliases: []
+url: http://192.168.1.13:29380
+sender_localpart: sq2H30sAC1qVAyK_yvkG172ertOqeD6vRT4VexTuMGynKqpkCguU0RhUFB5KgODl
+rate_limited: false
