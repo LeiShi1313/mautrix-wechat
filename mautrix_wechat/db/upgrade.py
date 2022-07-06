@@ -19,7 +19,8 @@ async def upgrade_v1(conn: Connection) -> None:
         mxid        TEXT PRIMARY KEY,
         wxid        TEXT UNIQUE,
         wxname      TEXT,
-        wxcode      TEXT
+        wxcode      TEXT,
+        notice_room TEXT
     )""")
     await conn.execute("""CREATE TABLE puppet (
         wxid         TEXT PRIMARY KEY,

@@ -1,12 +1,30 @@
 [build-system]
-requires = [
-    "setuptools >= 48",
-    "setuptools_scm[toml] >= 4, <6",
-    "setuptools_scm_git_archive",
-    "wheel >= 0.29.0",
-]
-build-backend = 'setuptools.build_meta'
+requires = ["pdm-pep517>=0.12.0"]
+build-backend = "pdm.pep517.api"
 
-[tool.setuptools_scm]
-write_to = "mautrix_wechat/version.py"
-git_describe_command = "git describe --dirty --tags --long --first-parent"
+[project]
+name = "mautrix-wechat"
+version = "0.0.1"
+description = "A Matrix-Wechat puppeting bridge, based on https://github.com/ChisBread/wechat-box"
+authors = [
+    {name = "Lei Shi", email = "me@leishi.io"},
+]
+dependencies = [
+    "mautrix>=0.16.0",
+    "attrs>=19.1",
+    "yarl>=1,<2",
+    "aiohttp>=3,<4",
+    "ruamel.yaml>=0.15.94,<0.18",
+    "asyncpg>=0.25",
+    "websockets>=10.0",
+    "commonmark>=0.8,<0.10",
+    "python-dateutil"
+]
+requires-python = ">=3.8"
+readme = "README.md"
+license = {text = "MIT"}
+
+[tool.pdm.version]
+source = "scm"
+write_to = "mautrix_wechat/__version__.py"
+write_template = "__version__ = '{}'"

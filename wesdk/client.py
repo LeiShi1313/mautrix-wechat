@@ -1,16 +1,12 @@
 import sys
 import json
-from time import sleep
-import types
 import asyncio
 import logging
-import traceback
 from queue import Queue
 from typing import Optional, Union
 from collections import defaultdict
 
 import aiohttp
-import requests
 from dateutil import parser
 from websockets import connect
 from mautrix.util.logging import TraceLogger
@@ -23,10 +19,13 @@ def register(q):
     def inner(func):
         func._register = q
         return func
+
     return inner
+
 
 async def print_msg(_, msg):
     print(msg)
+
 
 class ClientBase(type):
     def __init__(cls, name, bases, attrs):
@@ -182,10 +181,19 @@ class WechatClient(metaclass=ClientBase):
             self.logger.info(f"User {self.wx_name} ({self.wx_id}) logged in.")
         elif self.wx_name:
             self.logged_in = False
-            self.logger.info(f"User {self.wx_name} needs approve to re-logged in, please go to https://{self.ip}:8081/vnc.html")
+            self.logger.info(
+                f"User {self.wx_name} needs approve to re-logged in, please go to https://{self.ip}:8081/vnc.html"
+            )
         else:
-            self.logger.info(f"No account logged in, please go to https://{self.ip}:8081/vnc.html to log in.")
-
+            self.logged_in = False
+            self.logger.info(
+                f"No account logged in, please go to https://{self.ip}:8081/vnc.html to log in."
+            )
+        await self.on_personal_info(
+            WechatUser(name=self.wx_name, wxid=self.wx_id, wxcode=self.wx_code, headimg='', remarks='')
+            if self.wx_id and self.wx_name
+            else None
+        )
 
     @register(query.USER_LIST)
     async def handle_user_list(self, msg) -> None:
@@ -250,6 +258,9 @@ class WechatClient(metaclass=ClientBase):
         else:
             self.logger.warning(f"Received malformatted txt cite message: {msg}")
 
+    async def on_personal_info(self, source: Optional[WechatUser]) -> None:
+        print(f"Received personal info: {source}")
+
     async def on_at_message(self, msg) -> None:
         print(f"Received at message: {msg}")
 
@@ -265,7 +276,10 @@ class WechatClient(metaclass=ClientBase):
 
 async def send(we: WechatClient):
     while True:
-        await we.send_msg("https://dl3.pushbulletusercontent.com/vlM7SVMh04Xhc4850EfQfzzrrddqmyn9/mmexport1655323967706.jpg", "liber_13")
+        await we.send_msg(
+            "https://dl3.pushbulletusercontent.com/vlM7SVMh04Xhc4850EfQfzzrrddqmyn9/mmexport1655323967706.jpg",
+            "liber_13",
+        )
         await asyncio.sleep(5)
 
 

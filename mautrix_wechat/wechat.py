@@ -10,7 +10,7 @@ from mautrix.util.logging import TraceLogger
 from mautrix_wechat.db import Message as DBMessage
 from mautrix_wechat import user as u, portal as po, puppet as pu
 from wesdk.client import WechatClient
-from wesdk.types import PicMessage, TxtMessage, TxtCiteMessage
+from wesdk.types import PicMessage, TxtMessage, TxtCiteMessage, WechatUser
 
 if TYPE_CHECKING:
     from .__main__ import WechatBridge
@@ -34,19 +34,28 @@ class WechatHandler(WechatClient):
     async def stop(self) -> None:
         await self.disconnect()
 
+    async def on_personal_info(self, source: Optional[WechatUser]) -> None:
+        pass
+        # if source:
+        #     try:
+        #         user = await u.User.get_by_wxid(source.wxid)
+        #         if not user:
+        #             self.log.debug(f"Creating user for {source.wxid}")
+        #             user = u.User(pu.Puppet.get_mxid_from_wxid(source.wxid), source.wxid, source.name, source.wxcode)
+        #             user.insert()
+        #             self.log.debug(f"Created user for {source.wxid}")
+        #     except Exception:
+        #         self.log.exception("Error handling personal info", exc_info=True)
+
     async def on_txt_message(self, msg: TxtMessage) -> None:
         print(f"Received txt message: {msg}")
-        sender = await pu.Puppet.get_by_wxid(msg.user)
-        user  = await u.User.get_by_wxid(msg.user)
-        portal = await po.Portal.get_by_wxid(msg.source, create=True)
-        if not portal.mxid:
-            await portal.create_matrix_room()
-            if not portal.mxid:
-                user.log.warning(
-                    f"Failed to create room for incoming message ({msg.timestamp}): {msg.content}"
-                )
-                return
-        await portal.handle_txt_message(msg)
+        try:
+            user  = await u.User.get_by_wxid(msg.user)
+            sender = await pu.Puppet.get_by_wxid(msg.user, create=True)
+            portal = await po.Portal.get_by_wxid(msg.source, create=True)
+            await portal.handle_txt_message(user, sender, msg)
+        except Exception:
+            self.log.exception("Error handling txt message", exc_info=True)
 
 
         # await portal.handle_txt_message(msg)

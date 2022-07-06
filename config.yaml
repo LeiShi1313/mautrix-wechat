@@ -99,7 +99,6 @@ bridge:
     # Servers to always allow double puppeting from
     double_puppet_server_map:
         example.com: https://example.com
-    # Allow using double puppeting from any server with a valid client .well-known file.
     double_puppet_allow_discovery: false
     # Shared secret for https://github.com/devture/matrix-synapse-shared-secret-auth
     #
@@ -110,7 +109,6 @@ bridge:
     # you must also set the URL in the double_puppet_server_map.
     login_shared_secret_map:
         example.com: foobar
-    # Whether or not to update avatars when syncing all contacts at startup.
     update_avatar_initial_sync: true
     # End-to-bridge encryption support options.
     #
@@ -178,7 +176,7 @@ bridge:
         # Shared secret for integration managers such as mautrix-manager.
         # If set to "generate", a random string will be generated on the next startup.
         # If null, integration manager access to the API will not be possible.
-        shared_secret: generate
+        shared_secret: 2rCdQsH07gJzYaoiHA2yfOLuO26B054k2rhgDo_ZVq0d8Q6ILbUqeiE5Fftq8dDk
 
     # Permissions for using the bridge.
     # Permitted values:
@@ -191,7 +189,6 @@ bridge:
     permissions:
         example.com: user
         '@admin:example.com': admin
-
 wechat:
     wechat_box_ip: 127.0.0.1
     wechat_box_port: 5555

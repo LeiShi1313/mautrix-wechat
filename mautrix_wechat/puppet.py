@@ -21,7 +21,7 @@ from mautrix.util.simple_template import SimpleTemplate
 
 from mautrix_wechat.db import Puppet as DBPuppet, puppet
 from mautrix_wechat.config import Config
-from mautrix_wechat import portal as p
+# from mautrix_wechat import portal as p
 from wesdk.types import WechatID
 
 if TYPE_CHECKING:
@@ -35,6 +35,7 @@ class Puppet(DBPuppet, BasePuppet):
     by_custom_mxid: dict[UserID, "Puppet"] = {}
     hs_domain: str
     mxid_template: SimpleTemplate[str]
+    default_mxid_intent: IntentAPI
 
     def __init__(
         self,
@@ -88,9 +89,6 @@ class Puppet(DBPuppet, BasePuppet):
     @classmethod
     @async_getter_lock
     async def get_by_wxid(cls, wxid: WechatID, create: bool = False) -> Optional["Puppet"]:
-        if not wxid:
-            return None
-        
         if wxid in cls.by_wxid:
             return cls.by_wxid[wxid]
         

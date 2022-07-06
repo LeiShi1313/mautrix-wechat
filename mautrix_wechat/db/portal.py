@@ -50,7 +50,7 @@ class Portal:
     async def get_by_wxid(cls, wxid: WechatID, receiver: WechatID) -> Optional['Portal']:
         q = ("SELECT wxid, receiver, mxid, name, encrypted "
              "FROM portal WHERE wxid=$1::text AND receiver=$2::text")
-        row = await cls.db.fetchrow(q, wxid)
+        row = await cls.db.fetchrow(q, wxid, receiver)
         if not row:
             return None
         return cls._from_row(row)

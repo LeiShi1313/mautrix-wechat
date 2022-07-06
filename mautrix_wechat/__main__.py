@@ -62,7 +62,7 @@ class WechatBridge(Bridge):
 
         await super().start()
 
-    async def prepare_stop(self) -> None:
+    def prepare_stop(self) -> None:
         self.add_shutdown_actions(self.wechat.stop())
         # self.add_shutdown_actions(user.stop() for user in User.by_mxid.values())
         for puppet in Puppet.by_custom_mxid.values():
