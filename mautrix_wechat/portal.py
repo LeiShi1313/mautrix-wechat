@@ -20,7 +20,7 @@ from mautrix.appservice import AppService, IntentAPI
 from mautrix.errors import MatrixError
 
 # from mausignald.types import Address, Contact, Profile
-from mautrix.bridge import BasePortal
+from mautrix.bridge import BasePortal, puppet
 from mautrix.types import (
     BeeperMessageStatusEventContent,
     ContentURI,
@@ -43,10 +43,11 @@ from mautrix.types import (
 from mautrix.util.simple_template import SimpleTemplate
 from wesdk.types import TxtMessage, WechatID, WechatUser
 
-from mautrix_wechat import matrix as m
-from mautrix_wechat import puppet as p
-from mautrix_wechat import user as u
-from mautrix_wechat import wechat as w
+import mautrix_wechat.user as u
+from mautrix_wechat import (
+    matrix as m,
+    puppet as p,
+    wechat as w)
 from mautrix_wechat.config import Config
 from mautrix_wechat.db import Message as DBMessage
 from mautrix_wechat.db import Portal as DBPortal
@@ -66,6 +67,7 @@ class Portal(DBPortal, BasePortal):
     signal: "w.WechatHandler"
     az: AppService
     private_chat_portal_meta: bool
+    deleted: bool
 
     _main_intent: Optional[IntentAPI]
     _create_room_lock: asyncio.Lock
@@ -75,7 +77,6 @@ class Portal(DBPortal, BasePortal):
     def init_cls(cls, bridge: "WechatBridge") -> None:
         cls.config = bridge.config
         cls.matrix = bridge.matrix
-        cls.wechat = bridge.wechat
         cls.az = bridge.az
         cls.loop = bridge.loop
         BasePortal.bridge = bridge
@@ -83,12 +84,16 @@ class Portal(DBPortal, BasePortal):
     def __init__(
         self,
         wxid: WechatID,
-        mxid: Optional[RoomID],
-        name: Optional[str],
-        encrypted: bool,
+        receiver: WechatID,
+        mxid: Optional[RoomID] = None,
+        name: Optional[str] = None,
+        encrypted: bool = False,
+        avatar_url: Optional[ContentURI] = None
     ) -> None:
-        super().__init__(wxid=wxid, mxid=mxid, name=name, encrypted=encrypted)
+        super().__init__(wxid=wxid, receiver=receiver, mxid=mxid, name=name, encrypted=encrypted)
         BasePortal.__init__(self)
+        self.avatar_url = avatar_url
+        self.deleted = False
         self.log = self.log.getChild(self.wxid)
         self._main_intent = None
         self._create_room_lock = asyncio.Lock()
@@ -106,6 +111,10 @@ class Portal(DBPortal, BasePortal):
             self._main_intent = puppet.default_mxid_intent
         else:
             self._main_intent = self.az.intent
+
+    @property
+    def is_direct(self) -> bool:
+        return not self.wxid.endswith('chatroom')
 
     @property
     def main_intent(self) -> IntentAPI:
@@ -152,6 +161,28 @@ class Portal(DBPortal, BasePortal):
             await portal.insert()
             await portal._postinit()
         return portal
+
+    async def delete(self) -> None:
+        try:
+            del self.by_wxid[(self.wxid, self.receiver)]
+        except KeyError:
+            pass
+
+        try:
+            if self.mxid:
+                del self.by_mxid[self.mxid]
+        except KeyError:
+            pass
+
+        await super().delete()
+        if self.mxid:
+            await DBMessage.delete_all(self.mxid)
+        self.deleted = True
+
+    async def handle_matrix_message(
+        self, sender: u.User, message: MessageEventContent, event_id: EventID
+    ) -> None:
+        raise NotImplementedError()
 
     async def handle_txt_message(
         self, source: u.User, sender: p.Puppet, msg: TxtMessage
@@ -244,7 +275,7 @@ class Portal(DBPortal, BasePortal):
 
         async with self._create_room_lock:
             try:
-                return await self._create_matrix_room(source)
+                return await self._create_matrix_room(source, info)
             except Exception as e:
                 self.log.exception("Failed to create portal room")
 
@@ -255,9 +286,6 @@ class Portal(DBPortal, BasePortal):
             return self.mxid
 
         self.log.debug(f"Creating matrix room for {self.wxid}")
-
-        self.receiver = source
-        self.name = info.name
 
         puppet = await self.get_dm_puppet()
         if puppet:
@@ -297,7 +325,7 @@ class Portal(DBPortal, BasePortal):
                 invites.append(self.az.bot_mxid)
         if self.is_direct and source.wxid == self.wxid:
             name = self.name = "FileHelper"
-        elif self.encrypted or self.private_chat_portal_meta or not self.is_direct:
+        elif self.encrypted or not self.is_direct:
             name = self.name
 
         creation_content = {}
@@ -305,9 +333,7 @@ class Portal(DBPortal, BasePortal):
             creation_content["m.federate"] = False
         self.mxid = await self.main_intent.create_room(
             name=name,
-            # topic=self.topic,
             is_direct=self.is_direct,
-            invite=invites,
             initial_state=initial_state,
             creation_content=creation_content,
             power_level_override={"users": {self.main_intent.mxid: 9001}},

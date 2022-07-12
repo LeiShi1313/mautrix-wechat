@@ -26,10 +26,14 @@ class Portal:
              "VALUES ($1, $2, $3, $4, $5)")
         await self.db.execute(q, self.wxid, self.receiver, self.mxid, self.name, self.encrypted)
 
-    async def update(self) -> None:
+    async def save(self) -> None:
         q = ("UPDATE portal SET mxid=$3, name=$4, encrypted=$5 "
              "WHERE wxid=$1::text and receiver=$2::text")
         await self.db.execute(q, self.wxid, self.receiver, self.mxid, self.name, self.encrypted)
+
+    async def delete(self) -> None:
+        q = "DELETE FROM portal where wxid=$1::text and receiver=$2::text"
+        await self.db.execute(q, self.wxid, self.receiver)
 
     @classmethod
     def _from_row(cls, row: asyncpg.Record) -> 'Portal':

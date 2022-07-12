@@ -21,7 +21,6 @@ class Config(BaseBridgeConfig):
             ForbiddenDefault("homeserver.address", "https://example.com"),
             ForbiddenDefault("homeserver.domain", "example.com"),
             ForbiddenDefault("bridge.permissions", "example.com"),
-            ForbiddenDefault("appservice.database", "postgres://username:password@hostname/db"),
         ]
 
     def do_update(self, helper: ConfigUpdateHelper) -> None:
@@ -30,8 +29,7 @@ class Config(BaseBridgeConfig):
 
         copy("homeserver.asmux")
 
-        copy("wechat.wechat_box_ip")
-        copy("wechat.wechat_box_port")
+        copy("wechat.boxes")
 
         copy("metrics.enabled")
         copy("metrics.listen_port")

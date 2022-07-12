@@ -25,7 +25,7 @@ class User:
              'VALUES ($1, $2, $3, $4, $5)')
         await self.db.execute(q, self.mxid, self.wxid, self.wxname, self.wxcode, self.notice_room)
 
-    async def update(self) -> None:
+    async def save(self) -> None:
         await self.db.execute('UPDATE "user" SET wxid=$2, wxname=$3, wxcode=$4 notice_room=$5'
                               'WHERE mxid=$1', self.mxid, self.wxid, self.wxname, self.wxcode, self.notice_room)
 

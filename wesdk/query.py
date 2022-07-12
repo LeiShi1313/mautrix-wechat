@@ -32,7 +32,7 @@ def get_personal_info():
         "id": uuid(),
         "type": PERSONAL_INFO,
         "content": "op:personal info",
-        "wxid": "null",
+        "wxid": "ROOT",
     }
     return json.dumps(qs)
 

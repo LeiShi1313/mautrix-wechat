@@ -8,10 +8,10 @@ from mautrix_wechat.version import version
 from mautrix_wechat.config import Config
 from mautrix_wechat.db import upgrade_table, init as init_db
 from mautrix_wechat.matrix import MatrixHandler
-from mautrix_wechat.wechat import WechatHandler
-from mautrix_wechat.user import User
 from mautrix_wechat.portal import Portal
 from mautrix_wechat.puppet import Puppet
+from mautrix_wechat.user import User
+from mautrix_wechat.wechat import WechatHandler
 
 
 class WechatBridge(Bridge):
@@ -29,7 +29,6 @@ class WechatBridge(Bridge):
 
     db: Database
     matrix: MatrixHandler
-    wechat: WechatHandler
     config: Config
     state_store: PgBridgeStateStore
 
@@ -42,7 +41,6 @@ class WechatBridge(Bridge):
         super().prepare_bridge()
         # self.provisioning_api = ProvisioningAPI(cfg["shared_secret"])
         # self.az.app.add_subapp(cfg["prefix"], self.provisioning_api.app)
-        self.wechat = WechatHandler(self)
 
     async def resend_bridge_info(self) -> None:
         self.config["bridge.resend_bridge_info"] = False
@@ -56,14 +54,18 @@ class WechatBridge(Bridge):
         User.init_cls(self)
         Portal.init_cls(self)
         Puppet.init_cls(self)
+
+        for box in self.config["wechat.boxes"]:
+            ip, _, port = box.partition(':')
+            if not port.isdigit():
+                port = 5555
+            self.add_startup_actions(WechatHandler(ip, int(port), self).start())
+
         if self.config["bridge.resend_bridge_info"]:
             self.add_startup_actions(self.resend_bridge_info())
-        self.add_startup_actions(self.wechat.start())
-
         await super().start()
 
     def prepare_stop(self) -> None:
-        self.add_shutdown_actions(self.wechat.stop())
         # self.add_shutdown_actions(user.stop() for user in User.by_mxid.values())
         for puppet in Puppet.by_custom_mxid.values():
             puppet.stop()

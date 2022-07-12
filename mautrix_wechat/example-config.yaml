@@ -197,8 +197,8 @@ bridge:
         "@admin:example.com": "admin"
 
 wechat:
-    wechat_box_ip: 127.0.0.1
-    wechat_box_port: 5555
+    boxes:
+    - 127.0.0.1:5555
 
 # Python logging configuration.
 #

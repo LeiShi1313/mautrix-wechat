@@ -3,6 +3,7 @@ import json
 import asyncio
 import logging
 from queue import Queue
+from abc import ABCMeta
 from typing import Optional, Union
 from collections import defaultdict
 
@@ -19,15 +20,13 @@ def register(q):
     def inner(func):
         func._register = q
         return func
-
     return inner
-
 
 async def print_msg(_, msg):
     print(msg)
 
 
-class ClientBase(type):
+class ClientBase(ABCMeta):
     def __init__(cls, name, bases, attrs):
         if not hasattr(cls, "handler_registry"):
             cls.handler_registry = defaultdict(lambda: print_msg)
@@ -65,8 +64,6 @@ class WechatClient(metaclass=ClientBase):
         self._contact_list = {}
         self._pending_messages = Queue()
         self._pending_messages.put(query.get_personal_info())
-        self._pending_messages.put(query.get_contact_list())
-        # self._pending_messages.put(query.get_chatroom_member('wxid_v11uy95lmdjh22'))
         self._communicate_task = None
 
     async def connect(self) -> None:
@@ -102,8 +99,10 @@ class WechatClient(metaclass=ClientBase):
                     continue
                 # self.loop.create_task(self.handler_registry.get(resp_type)(self, msg))
 
-    def retrieve_login_info(self) -> None:
+    def get_personal_info(self) -> None:
         self._pending_messages.put(query.get_personal_info())
+
+    def get_user_list(self) -> None:
         self._pending_messages.put(query.get_contact_list())
 
     async def _send_pending_messages(self, ws) -> None:
@@ -113,6 +112,8 @@ class WechatClient(metaclass=ClientBase):
                 await ws.send(msg)
             elif isinstance(msg, asyncio.Future):
                 await msg
+            else:
+                self.logger.warning(f"Unsupported message {msg} type: {type(msg)}")
 
     async def send_http(self, uri: str, data: Union[dict, str, bytes]):
         if isinstance(data, str) or isinstance(data, bytes):
@@ -168,11 +169,19 @@ class WechatClient(metaclass=ClientBase):
         self.last_heart_beat = (
             parser.parse(msg.get("time")) if msg.get("time") else None
         )
-        self.logger.debug(f"Received heart beat: {self.last_heart_beat}")
+        self.logger.trace(f"Received heart beat: {self.last_heart_beat}")
+
+    @register(query.PERSONAL_DETAIL)
+    async def handle_personal_detail(self, msg) -> None:
+        self.logger.trace(msg)
+
+    @register(query.CHATROOM_MEMBER_NICK)
+    async def handle_chatroom_member_nick(self, msg) -> None:
+        self.logger.trace(msg)
 
     @register(query.PERSONAL_INFO)
     async def handle_personal_info(self, msg) -> None:
-        self.logger.trace(msg)
+        self.logger.debug(msg)
         self.wx_id = msg.get("content", {}).get("wx_id")
         self.wx_code = msg.get("content", {}).get("wx_code")
         self.wx_name = msg.get("content", {}).get("wx_name")
@@ -197,7 +206,7 @@ class WechatClient(metaclass=ClientBase):
 
     @register(query.USER_LIST)
     async def handle_user_list(self, msg) -> None:
-        self.logger.trace(msg)
+        # self.logger.trace(msg)
         count = 0
         for user in msg.get("content", []):
             if wxid := user.get("wxid"):
@@ -209,7 +218,8 @@ class WechatClient(metaclass=ClientBase):
                     wxcode=user.get("wxcode"),
                     wxid=WechatID(user.get("wxid")),
                 )
-        self.logger.info(f"Received {count} contacts")
+        self.logger.debug(f"Received {count} contacts")
+        await self.on_user_list(self._contact_list.values())
 
     @register(query.AT_MSG)
     async def handle_at_msg(self, msg) -> None:
@@ -261,6 +271,9 @@ class WechatClient(metaclass=ClientBase):
     async def on_personal_info(self, source: Optional[WechatUser]) -> None:
         print(f"Received personal info: {source}")
 
+    async def on_user_list(self, users: list[WechatUser]) -> None:
+        print(f"Received {len(users)} users")
+
     async def on_at_message(self, msg) -> None:
         print(f"Received at message: {msg}")
 
@@ -294,7 +307,7 @@ if __name__ == "__main__":
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     we = WechatClient(logger=logger, loop=loop)
     loop.create_task(we.connect())
     # loop.create_task(send(we))

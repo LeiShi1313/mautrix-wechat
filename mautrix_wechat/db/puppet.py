@@ -4,7 +4,7 @@ from typing import Optional, ClassVar, List, TYPE_CHECKING
 from attr import dataclass
 from yarl import URL
 
-from mautrix.types import UserID, SyncToken
+from mautrix.types import UserID, SyncToken, ContentURI
 from mautrix.util.async_db import Database
 from wesdk.types import WechatID
 
@@ -25,12 +25,13 @@ class Puppet:
     access_token: Optional[str]
     next_batch: Optional[SyncToken]
     base_url: Optional[URL]
+    avatar_url: Optional[ContentURI]
 
     async def insert(self) -> None:
         q = (
             "INSERT INTO puppet (wxid, headimg, name, remarks, wxcode, "
-            "                    custom_mxid, access_token, next_batch, base_url) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
+            "                    custom_mxid, access_token, next_batch, base_url, avatar_url) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
         )
         await self.db.execute(
             q,
@@ -42,13 +43,14 @@ class Puppet:
             self.custom_mxid,
             self.access_token,
             self.next_batch,
-            self.base_url
+            self.base_url,
+            self.avatar_url
         )
 
-    async def update(self) -> None:
+    async def save(self) -> None:
         q = (
             "UPDATE puppet SET headimg=$2, name=$3, remarks=$4, wxcode=$5, "
-            "                  custom_mxid=$6, access_token=$7, next_batch=$8, base_url=$9 "
+            "                  custom_mxid=$6, access_token=$7, next_batch=$8, base_url=$9, avatar_url=$10 "
             "WHERE wxid=$1"
         )
         await self.db.execute(
@@ -61,14 +63,15 @@ class Puppet:
             self.custom_mxid,
             self.access_token,
             self.next_batch,
-            self.base_url
+            self.base_url,
+            self.avatar_url
         )
 
     @classmethod
     async def get_by_wxid(cls, wxid: WechatID) -> Optional["Puppet"]:
         q = (
             "SELECT wxid, headimg, name, remarks, wxcode, "
-            "       custom_mxid, access_token, next_batch, base_url "
+            "       custom_mxid, access_token, next_batch, base_url, avatar_url "
             "FROM puppet WHERE wxid=$1"
         )
         row = await cls.db.fetchrow(q, wxid)
@@ -80,7 +83,7 @@ class Puppet:
     async def get_by_custom_mxid(cls, mxid: UserID) -> Optional["Puppet"]:
         q = (
             "SELECT wxid, headimg, name, remarks, wxcode, "
-            "       custom_mxid, access_token, next_batch, base_url "
+            "       custom_mxid, access_token, next_batch, base_url, avatar_url "
             "FROM puppet WHERE custom_mxid=$1"
         )
         row = await cls.db.fetchrow(q, mxid)
@@ -92,7 +95,7 @@ class Puppet:
     async def all_with_custom_mxid(cls) -> List["Puppet"]:
         q = (
             "SELECT wxid, headimg, name, remarks, wxcode, "
-            "       custom_mxid, access_token, next_batch, base_url "
+            "       custom_mxid, access_token, next_batch, base_url, avatar_url "
             "FROM puppet WHERE custom_mxid IS NOT NULL"
         )
         rows = await cls.db.fetch(q)

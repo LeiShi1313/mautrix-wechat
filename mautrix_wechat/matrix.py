@@ -6,7 +6,7 @@ from mautrix.types import (Event, ReactionEvent, MessageEvent, StateEvent, Encry
                            ReceiptEvent, TypingEvent, PresenceEvent, RedactionEvent, PresenceEventContent)
 
 from mautrix_wechat.db import Message as DBMessage
-from mautrix_wechat import commands as com, puppet as pu, portal as po, user as u
+from mautrix_wechat import commands as com, portal as po, puppet as pu, user as u
 
 if TYPE_CHECKING:
     from .__main__ import WechatBridge

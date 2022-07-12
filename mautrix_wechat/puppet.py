@@ -16,11 +16,12 @@ from yarl import URL
 from mautrix.bridge import BasePuppet, async_getter_lock
 from mautrix.appservice import IntentAPI
 from mautrix.types import UserID, SyncToken
-from mautrix.types import UserID, SyncToken, RoomID
+from mautrix.types import UserID, SyncToken, RoomID, ContentURI
 from mautrix.util.simple_template import SimpleTemplate
 
 from mautrix_wechat.db import Puppet as DBPuppet, puppet
 from mautrix_wechat.config import Config
+from mautrix_wechat.util.file import download_and_upload_file
 # from mautrix_wechat import portal as p
 from wesdk.types import WechatID
 
@@ -40,14 +41,15 @@ class Puppet(DBPuppet, BasePuppet):
     def __init__(
         self,
         wxid: WechatID,
-        headimg: str,
-        name: str,
-        remarks: str,
-        wxcode: str,
-        custom_mxid: Optional[UserID],
-        access_token: Optional[str],
-        next_batch: Optional[SyncToken],
-        base_url: Optional[URL],
+        headimg: Optional[str] = None,
+        name: Optional[str] = None,
+        remarks: Optional[str] = None,
+        wxcode: Optional[str] = None,
+        custom_mxid: Optional[UserID] = None,
+        access_token: Optional[str] = None,
+        next_batch: Optional[SyncToken] = None,
+        base_url: Optional[URL] = None,
+        avatar_url: Optional[ContentURI] = None,
     ) -> None:
         super().__init__(
             wxid=wxid,
@@ -59,6 +61,7 @@ class Puppet(DBPuppet, BasePuppet):
             access_token=access_token,
             next_batch=next_batch,
             base_url=base_url,
+            avatar_url=avatar_url
         )
         self.default_mxid = self.get_mxid_from_wxid(wxid)
         self.default_mxid_intent = self.az.intent.user(self.default_mxid)
@@ -85,6 +88,21 @@ class Puppet(DBPuppet, BasePuppet):
         self.by_wxid[self.wxid] = self
         if self.custom_mxid:
             self.by_custom_mxid[self.custom_mxid] = self
+
+    async def _update_avatar(self, headimg: str) -> bool:
+        if headimg != self.headimg:
+            if headimg:
+                photo_mxc = await download_and_upload_file(headimg, self.default_mxid_intent, self.config)
+                self.avatar_url = photo_mxc
+            else:
+                self.avatar_url = ContentURI("")
+            try:
+                await self.default_mxid_intent.set_avatar_url(self.avatar_url)
+            except Exception:
+                self.log.exception("Failed to set avatar")
+                return False
+            return True
+        return False
 
     @classmethod
     @async_getter_lock
