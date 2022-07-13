@@ -234,17 +234,18 @@ class Portal(DBPortal, BasePortal):
         except Exception:
             self.log.exception(f"Failed to update info for {self.mxid}")
         if changed:
-            await self.update()
+            await self.save()
             await self.update_bridge_info()
 
     async def _update_name(self, name: str, save: bool = False) -> bool:
         if self.name == name:
             return False
         self.name = name or None
-        # if self.name:
-        # await self.main_intent.add_room_alias(self.mxid, self.alias_localpart, override=True)
+        if self.name:
+            await self.main_intent.add_room_alias(self.mxid, self.alias_localpart, override=True)
+
         if save:
-            await self.update()
+            await self.save()
         return True
 
     async def update_bridge_info(self) -> None:
@@ -348,7 +349,7 @@ class Portal(DBPortal, BasePortal):
                 self.log.warning(
                     f"Failed to add bridge bot to new private chat {self.mxid}"
                 )
-        await self.update()
+        await self.save()
         self.log.debug(f"Matrix room created: {self.mxid}")
         self.by_mxid[self.mxid] = self
 

@@ -27,9 +27,9 @@ def uuid():
 
 
 # get_personal_info 获取登陆微信账号信息
-def get_personal_info():
+def get_personal_info(msg_id: str | None = None):
     qs = {
-        "id": uuid(),
+        "id": msg_id or uuid(),
         "type": PERSONAL_INFO,
         "content": "op:personal info",
         "wxid": "ROOT",
@@ -38,9 +38,9 @@ def get_personal_info():
 
 
 # get_personal_detail 获取微信id查询账号信息
-def get_personal_detail(wxid):
+def get_personal_detail(wxid, msg_id: str | None = None):
     qs = {
-        "id": uuid(),
+        "id": msg_id or uuid(),
         "type": PERSONAL_DETAIL,
         "content": "op:personal detail",
         "wxid": wxid,
@@ -49,13 +49,11 @@ def get_personal_detail(wxid):
 
 
 # get_chatroom_member_nick 获取chatroom 成员昵称
-def get_chatroom_member_nick(roomid="null", wxid="ROOT"):
-    if not roomid:
-        roomid = "null"
+def get_chatroom_member_nick(roomid="null", wxid="null", msg_id: str | None = None):
     if wxid == "null" and roomid == "null":
         raise ValueError("wxid和roomid不能同时为'null'")
     qs = {
-        "id": uuid(),
+        "id": msg_id or uuid(),
         "type": CHATROOM_MEMBER_NICK,
         "roomid": roomid,
         "wxid": wxid,
@@ -63,14 +61,14 @@ def get_chatroom_member_nick(roomid="null", wxid="ROOT"):
     return json.dumps(qs)
 
 
-def get_user_nick(wxid):
-    return get_chatroom_member_nick(wxid=wxid)
+def get_user_nick(wxid, msg_id: str | None = None):
+    return get_chatroom_member_nick(wxid=wxid, msg_id=msg_id)
 
 
 # get_chatroom_member 获取群的成员信息
-def get_chatroom_member(roomid="null"):
+def get_chatroom_member(roomid="null", msg_id: str | None = None):
     qs = {
-        "id": uuid(),
+        "id": msg_id or uuid(),
         "type": CHATROOM_MEMBER,
         "wxid": "null",
         "roomid": roomid,
@@ -80,9 +78,9 @@ def get_chatroom_member(roomid="null"):
 
 
 # get_contact_list 获取当前通讯录的wxid和roomid
-def get_contact_list():
+def get_contact_list(msg_id: str | None = None):
     qs = {
-        "id": uuid(),
+        "id": msg_id or uuid(),
         "type": USER_LIST,
         "content": "user list",
         "wxid": "null",
@@ -91,14 +89,14 @@ def get_contact_list():
 
 
 # get_user_list alias of get_contact_list
-def get_user_list():
-    return get_contact_list()
+def get_user_list(msg_id: str | None = None):
+    return get_contact_list(msg_id)
 
 
 # destroy_all .
-def destroy_all():
+def destroy_all(msg_id: str | None = None):
     qs = {
-        "id": uuid(),
+        "id": msg_id or uuid(),
         "type": DESTROY_ALL,
         "content": "none",
         "wxid": "node",
@@ -110,7 +108,7 @@ def destroy_all():
 # usage:
 #    wxid, roomid任选其一时, 发送非at消息, 根据msg的形式决定具体类型
 #    wxid, roomid, nickname都存在时, 发送at消息
-def send_msg(msg, wxid="null", roomid="null", nickname="null", force_type=None):
+def send_msg(msg, wxid="null", roomid="null", nickname="null", force_type=None, msg_id: str | None = None):
     if not wxid:
         wxid = "null"
     if not roomid:
@@ -152,7 +150,7 @@ def send_msg(msg, wxid="null", roomid="null", nickname="null", force_type=None):
             roomid = "null"
 
     qs = {
-        "id": uuid(),
+        "id": msg_id or uuid(),
         "type": msg_type,
         "roomid": roomid,
         "wxid": wxid,
@@ -164,9 +162,9 @@ def send_msg(msg, wxid="null", roomid="null", nickname="null", force_type=None):
 
 
 # debug_switch debugview调试信息开关，默认为关
-def debug_switch():
+def debug_switch(msg_id: str | None = None):
     qs = {
-        "id": uuid(),
+        "id": msg_id or uuid(),
         "type": DEBUG_SWITCH,
         "content": "off",
         "wxid": "ROOT",

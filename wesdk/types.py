@@ -3,7 +3,11 @@ from datetime import datetime
 from dataclasses import dataclass
 
 
-WechatID = NewType('WechatID', str)
+class WechatID(str):
+    @property
+    def is_chatroom(self):
+        return self.endswith('chatroom')
+
 
 @dataclass
 class WechatUser:
@@ -13,6 +17,22 @@ class WechatUser:
     wxcode: str
     wxid: WechatID
 
+    @property
+    def is_chatroom(self):
+        return self.wxid.is_chatroom
+
+@dataclass
+class WechatUserDetail:
+    big_headimg: str
+    cover: str
+    little_headimg: str
+    signature: str
+
+@dataclass
+class ChatRoomNick:
+    wxid: WechatID
+    roomid: WechatID
+    nick: str
 
 @dataclass
 class Message:

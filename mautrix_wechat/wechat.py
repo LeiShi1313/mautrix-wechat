@@ -79,9 +79,6 @@ class WechatHandler(WechatClient):
                         await portal.save()
                     except Exception:
                         self.log.exception(f"Fail to update portal for {user.name} {user.wxid}")
-                
-                if not portal.mxid:
-                    await portal.create_matrix_room(self.user, user)
             else:
                 puppet = await pu.Puppet.get_by_wxid(user.wxid)
                 if not puppet:
