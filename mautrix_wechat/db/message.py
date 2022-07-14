@@ -17,6 +17,7 @@ class Message:
 
     mxid: EventID
     mx_room: RoomID
+    id: str
     sender: WechatID
     source: WechatID
     receiver: WechatID
@@ -24,13 +25,14 @@ class Message:
 
     async def insert(self) -> None:
         q = (
-            "INSERT INTO message (mxid, mx_room, sender, source, receiver, timestamp)"
-            "                         VALUES ($1, $2, $3, $4, $5, $6)"
+            "INSERT INTO message (mxid, mx_room, id, sender, source, receiver, timestamp)"
+            "                         VALUES ($1, $2, $3, $4, $5, $6, $7)"
         )
         await self.db.execute(
             q,
             self.mxid,
             self.mx_room,
+            self.id,
             self.sender,
             self.source,
             self.receiver,
@@ -59,7 +61,7 @@ class Message:
     @classmethod
     async def get_by_mxid(cls, mxid: EventID, mx_room: RoomID) -> Optional["Message"]:
         q = (
-            "SELECT mxid, mx_room, sender, source, receiver, timestamp "
+            "SELECT mxid, mx_room, id, sender, source, receiver, timestamp "
             "FROM message WHERE mxid=$1 AND mx_room=$2"
         )
         row = await cls.db.fetchrow(q, mxid, mx_room)
@@ -72,7 +74,7 @@ class Message:
         cls, sender: WechatID, source: WechatID, receiver: WechatID, timestamp: int
     ) -> Optional["Message"]:
         q = (
-            "SELECT mxid, mx_room, sender, timestamp, wechat_chat_id, wechat_receiver "
+            "SELECT mxid, mx_room, id, sender, timestamp, wechat_chat_id, wechat_receiver "
             "FROM message WHERE sender=$1 AND source=$2 AND receiver=$3 AND timestamp=$4"
         )
         row = await cls.db.fetchrow(q, sender, source, receiver, timestamp)
@@ -83,7 +85,7 @@ class Message:
     @classmethod
     async def find_by_timestamps(cls, timestamps: List[int]) -> List["Message"]:
         q = (
-            "SELECT mxid, mx_room, sender, source, receiver, timestamp "
+            "SELECT mxid, mx_room, id, sender, source, receiver, timestamp "
             "FROM message WHERE timestamp=ANY($1)"
         )
         rows = await cls.db.fetch(q, timestamps)
@@ -94,7 +96,7 @@ class Message:
         cls, sender: WechatID, timestamp: int
     ) -> Optional["Message"]:
         q = (
-            "SELECT mxid, mx_room, sender, source, receiver, timestamp "
+            "SELECT mxid, mx_room, id, sender, source, receiver, timestamp "
             "FROM message WHERE sender=$1 AND timestamp=$2"
         )
         row = await cls.db.fetchrow(q, sender, timestamp)
