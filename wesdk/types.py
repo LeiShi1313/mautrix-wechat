@@ -36,6 +36,7 @@ class ChatRoomNick:
 
 @dataclass
 class Message:
+    id: str
     source: WechatID
     user: WechatID
     time: datetime
