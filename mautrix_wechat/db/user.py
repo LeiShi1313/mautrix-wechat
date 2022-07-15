@@ -26,8 +26,9 @@ class User:
         await self.db.execute(q, self.mxid, self.wxid, self.wxname, self.wxcode, self.notice_room)
 
     async def save(self) -> None:
-        await self.db.execute('UPDATE "user" SET wxid=$2, wxname=$3, wxcode=$4 notice_room=$5'
-                              'WHERE mxid=$1', self.mxid, self.wxid, self.wxname, self.wxcode, self.notice_room)
+        q = ('UPDATE "user" SET mxid=$2, wxname=$3, wxcode=$4, notice_room=$5 '
+             'WHERE wxid=$1')
+        await self.db.execute(q, self.wxid, self.mxid, self.wxname, self.wxcode, self.notice_room)
 
     @classmethod
     async def get_by_mxid(cls, mxid: UserID) -> Optional['User']:

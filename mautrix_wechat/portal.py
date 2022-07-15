@@ -157,7 +157,7 @@ class Portal(DBPortal, BasePortal):
         if portal:
             await portal._postinit()
         elif create:
-            portal = cls(wxid)
+            portal = cls(wxid, receiver)
             await portal.insert()
             await portal._postinit()
         return portal
@@ -188,10 +188,10 @@ class Portal(DBPortal, BasePortal):
         self, source: u.User, sender: p.Puppet, msg: TxtMessage
     ) -> None:
         if not self.mxid:
-            await self.create_matrix_room()
+            await self.create_matrix_room(source)
             if not self.mxid:
                 self.log.warning(
-                    f"Failed to create room for incoming message ({msg.timestamp}): {msg.content}"
+                    f"Failed to create room for incoming message ({msg.time}): {msg.content}"
                 )
                 return
         if (msg.source, msg.user, msg.content, msg.time) in self._msg_dedup:
@@ -268,21 +268,20 @@ class Portal(DBPortal, BasePortal):
         except Exception:
             self.log.warning("Failed to update bridge info", exc_info=True)
 
-    async def create_matrix_room(
-        self, source: u.User, info: WechatUser
-    ) -> Optional[RoomID]:
+    async def create_matrix_room(self, source: u.User) -> Optional[RoomID]:
         if self.mxid:
-            await self.update_matrix_room(source, info)
+            await self.update_matrix_room(source)
 
         async with self._create_room_lock:
             try:
-                return await self._create_matrix_room(source, info)
+                return await self._create_matrix_room(source)
             except Exception as e:
                 self.log.exception("Failed to create portal room")
 
-    async def _create_matrix_room(
-        self, source: u.User, info: WechatUser
-    ) -> Optional[RoomID]:
+    async def _update_participants(self, source: u.User) -> None:
+        pass
+
+    async def _create_matrix_room(self, source: u.User) -> Optional[RoomID]:
         if self.mxid:
             return self.mxid
 
@@ -290,7 +289,7 @@ class Portal(DBPortal, BasePortal):
 
         puppet = await self.get_dm_puppet()
         if puppet:
-            await puppet.update_info(source, info)
+            await puppet.update_info(source)
 
         power_levels = PowerLevelStateEventContent()
         if self.is_direct:
@@ -324,10 +323,12 @@ class Portal(DBPortal, BasePortal):
             )
             if self.is_direct:
                 invites.append(self.az.bot_mxid)
-        if self.is_direct and source.wxid == self.wxid:
-            name = self.name = "FileHelper"
-        elif self.encrypted or not self.is_direct:
-            name = self.name
+        name = None
+        if self.is_direct:
+            if source.wxid == self.wxid:
+                name = self.name = "FileHelper"
+        # elif self.encrypted or not self.is_direct:
+        #     name = self.name
 
         creation_content = {}
         if not self.config["bridge.federate_rooms"]:
@@ -335,6 +336,7 @@ class Portal(DBPortal, BasePortal):
         self.mxid = await self.main_intent.create_room(
             name=name,
             is_direct=self.is_direct,
+            invitees=invites,
             initial_state=initial_state,
             creation_content=creation_content,
             power_level_override={"users": {self.main_intent.mxid: 9001}},
@@ -352,6 +354,7 @@ class Portal(DBPortal, BasePortal):
         await self.save()
         self.log.debug(f"Matrix room created: {self.mxid}")
         self.by_mxid[self.mxid] = self
+        # await self._update_participants(source)
 
         puppet = await p.Puppet.get_by_custom_mxid(source.mxid)
         await self.main_intent.invite_user(
@@ -359,7 +362,9 @@ class Portal(DBPortal, BasePortal):
         )
         if puppet:
             try:
-                await source.update_direct_chats({self.main_intent.mxid: [self.mxid]})
+                if self.is_direct:
+                    await source.update_direct_chats({self.main_intent.mxid: [self.mxid]})
+
                 await puppet.intent.join_room_by_id(self.mxid)
             except MatrixError:
                 self.log.debug(

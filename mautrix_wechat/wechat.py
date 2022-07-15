@@ -23,44 +23,55 @@ class WechatHandler(WechatClient):
     loop: asyncio.AbstractEventLoop
     user: Optional[u.User]
 
-    def __init__(self, ip: str, port: int, bridge: "WechatBridge") -> None:
+    def __init__(self, ip: str, port: int, admin: str, bridge: "WechatBridge") -> None:
+        self.admin = admin
         self.log = self.log.getChild(f"{ip}:{port}")
         super().__init__(ip, port, self.log, bridge.loop)
         self.user = None
 
     async def start(self) -> None:
         await self.connect()
+        fetched = await self.fetch_personal_info()
+        if fetched:
+            await self.fetch_contact_list()
 
     async def stop(self) -> None:
         await self.disconnect()
 
-    async def on_personal_info(self, source: Optional[WechatUser]) -> None:
-        if not source:
+    async def fetch_personal_info(self) -> bool:
+        info = await self.get_personal_info()
+        if not info:
             self.log.warning("No personal info found, try again in 5 seconds...")
             await asyncio.sleep(5)
-            self.get_personal_info()
-            return
+            return self.fetch_personal_info()
 
         try:
-            user = await u.User.get_by_wxid(source.wxid)
+            user = await u.User.get_by_wxid(info.wxid)
             if not user:
-                self.log.debug(f"Creating user for {source.wxid}")
+                self.log.debug(f"Creating user for {info.wxid}")
                 user = u.User(
-                    pu.Puppet.get_mxid_from_wxid(source.wxid),
-                    source.wxid,
-                    source.name,
-                    source.wxcode,
+                    self.admin,
+                    info.wxid,
+                    info.name,
+                    info.wxcode,
                 )
                 await user.insert()
                 user._postinit()
-                self.log.debug(f"Created user for {source.wxid}")
+                self.log.debug(f"Created user for {info.wxid}")
+            else:
+                user.mxid = self.admin
+                user.name = info.name
+                user.wxcode = info.wxcode
+                await user.save()
             user.login_complete(self)
             self.user = user
-            self.get_user_list()
         except Exception:
             self.log.exception("Error handling personal info", exc_info=True)
+            return False
+        return True
 
-    async def on_user_list(self, users: list[WechatUser]) -> None:
+    async def fetch_contact_list(self) -> None:
+        users = await self.get_contact_list()
         for user in users:
             if user.wxid.endswith('chatroom'):
                 portal = await po.Portal.get_by_wxid(user.wxid, self.wx_id)
@@ -103,10 +114,13 @@ class WechatHandler(WechatClient):
         print(f"Received txt message: {msg}")
         try:
             sender: pu.Puppet = await pu.Puppet.get_by_wxid(msg.user, create=True)
-            portal: po.Portal = await po.Portal.get_by_wxid(msg.source, create=True)
+            portal: po.Portal = await po.Portal.get_by_wxid(msg.source, self.wx_id, create=True)
             await portal.handle_txt_message(self.user, sender, msg)
         except Exception:
             self.log.exception("Error handling txt message", exc_info=True)
+
+    async def on_at_message(self, msg: TxtMessage) -> None:
+        print(f"Received at message: {msg}")
 
     async def on_pic_message(self, msg: PicMessage) -> None:
         print(f"Received pic message: {msg}")

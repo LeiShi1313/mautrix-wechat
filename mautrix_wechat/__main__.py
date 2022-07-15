@@ -1,9 +1,13 @@
 from typing import Any
+from collections import defaultdict
+from dataclasses import dataclass
 
 from mautrix.bridge import Bridge
 from mautrix.bridge.state_store.asyncpg import PgBridgeStateStore
 from mautrix.types import RoomID, UserID
 from mautrix.util.async_db import Database
+
+from mautrix_wechat import commands as _
 from mautrix_wechat.version import version
 from mautrix_wechat.config import Config
 from mautrix_wechat.db import upgrade_table, init as init_db
@@ -12,6 +16,13 @@ from mautrix_wechat.portal import Portal
 from mautrix_wechat.puppet import Puppet
 from mautrix_wechat.user import User
 from mautrix_wechat.wechat import WechatHandler
+from wesdk.client import WechatClient
+
+
+@dataclass
+class Wechat:
+    admin: str
+    handler: WechatHandler
 
 
 class WechatBridge(Bridge):
@@ -29,6 +40,7 @@ class WechatBridge(Bridge):
 
     db: Database
     matrix: MatrixHandler
+    wechat_handlers: list[WechatHandler]
     config: Config
     state_store: PgBridgeStateStore
 
@@ -55,11 +67,16 @@ class WechatBridge(Bridge):
         Portal.init_cls(self)
         Puppet.init_cls(self)
 
-        for box in self.config["wechat.boxes"]:
-            ip, _, port = box.partition(':')
+        self.wechat_handlers = []
+        for box_config in self.config["wechat.boxes"]:
+            admin = box_config.get('admin')
+            ip, _, port = box_config.get('address').partition(':')
             if not port.isdigit():
-                port = 5555
-            self.add_startup_actions(WechatHandler(ip, int(port), self).start())
+                self.log.warning(f"Not a valid box address: {box_config.get('address')}")
+                continue
+            handler = WechatHandler(ip, int(port), admin, self)
+            self.wechat_handlers.append(handler)
+            self.add_startup_actions(handler.start())
 
         if self.config["bridge.resend_bridge_info"]:
             self.add_startup_actions(self.resend_bridge_info())
@@ -69,6 +86,8 @@ class WechatBridge(Bridge):
         # self.add_shutdown_actions(user.stop() for user in User.by_mxid.values())
         for puppet in Puppet.by_custom_mxid.values():
             puppet.stop()
+        for handler in self.wechat_handlers:
+            self.add_shutdown_actions(handler.disconnect())
 
     async def get_portal(self, room_id: RoomID) -> Portal:
         return await Portal.get_by_mxid(room_id)

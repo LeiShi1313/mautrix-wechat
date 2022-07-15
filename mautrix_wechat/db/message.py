@@ -74,7 +74,7 @@ class Message:
         cls, sender: WechatID, source: WechatID, receiver: WechatID, timestamp: int
     ) -> Optional["Message"]:
         q = (
-            "SELECT mxid, mx_room, id, sender, timestamp, wechat_chat_id, wechat_receiver "
+            "SELECT mxid, mx_room, id, sender, source, receiver, timestamp "
             "FROM message WHERE sender=$1 AND source=$2 AND receiver=$3 AND timestamp=$4"
         )
         row = await cls.db.fetchrow(q, sender, source, receiver, timestamp)

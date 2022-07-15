@@ -48,7 +48,7 @@ appservice:
     # Display name and avatar for bot. Set to "remove" to remove display name/avatar, leave empty
     # to leave display name/avatar as-is.
     bot_displayname: Wechat bridge bot
-    bot_avatar: mxc://maunium.net/BDIWAQcbpPGASPUUBuEGWXnQ
+    bot_avatar: mxc://leishi.io/qyjwHrVAaNTmpLhIOXKCWGKG
 
     # Whether or not to receive ephemeral events via appservice transactions.
     # Requires MSC2409 support (i.e. Synapse 1.22+).
@@ -198,7 +198,8 @@ bridge:
 
 wechat:
     boxes:
-    - 127.0.0.1:5555
+    - admin: '@test:example.com'
+      address: 127.0.0.1:5555
 
 # Python logging configuration.
 #

@@ -47,6 +47,13 @@ class User(DBUser, BaseUser):
         super().__init__(mxid=mxid, wxid=wxid, wxname=wxname, wxcode=wxcode, notice_room=notice_room)
         BaseUser.__init__(self)
         self.client = None
+        self.is_whitelisted, self.is_admin, self.level = self.config.get_permissions(mxid)
+        self.groups = {}
+        self.groups_lock = asyncio.Lock()
+        self.users = {}
+        self.users_lock = asyncio.Lock()
+        self._intentional_disconnect = False
+        self.periodic_sync_task = None
 
     @classmethod
     def init_cls(cls, bridge: "WechatBridge") -> None:
