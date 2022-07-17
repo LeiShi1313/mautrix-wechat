@@ -11,6 +11,7 @@ from typing import (
 )
 from uuid import UUID
 import asyncio
+from dataclasses import fields
 
 from yarl import URL
 from mautrix.bridge import BasePuppet, async_getter_lock
@@ -22,8 +23,9 @@ from mautrix.util.simple_template import SimpleTemplate
 from mautrix_wechat.db import Puppet as DBPuppet, puppet
 from mautrix_wechat.config import Config
 from mautrix_wechat.util.file import download_and_upload_file
-# from mautrix_wechat import portal as p
-from wesdk.types import WechatID
+
+from mautrix_wechat import portal as p
+from wesdk.types import ChatRoomNick, WechatID, WechatUserDetail, WechatUser
 
 if TYPE_CHECKING:
     from .__main__ import WechatBridge
@@ -45,6 +47,7 @@ class Puppet(DBPuppet, BasePuppet):
         name: Optional[str] = None,
         remarks: Optional[str] = None,
         wxcode: Optional[str] = None,
+        is_registered: bool = False,
         custom_mxid: Optional[UserID] = None,
         access_token: Optional[str] = None,
         next_batch: Optional[SyncToken] = None,
@@ -57,11 +60,12 @@ class Puppet(DBPuppet, BasePuppet):
             name=name,
             remarks=remarks,
             wxcode=wxcode,
+            is_registered=is_registered,
             custom_mxid=custom_mxid,
             access_token=access_token,
             next_batch=next_batch,
             base_url=base_url,
-            avatar_url=avatar_url
+            avatar_url=avatar_url,
         )
         self.default_mxid = self.get_mxid_from_wxid(wxid)
         self.default_mxid_intent = self.az.intent.user(self.default_mxid)
@@ -92,24 +96,82 @@ class Puppet(DBPuppet, BasePuppet):
     async def _update_avatar(self, headimg: str) -> bool:
         if headimg != self.headimg:
             if headimg:
-                photo_mxc = await download_and_upload_file(headimg, self.default_mxid_intent, self.config)
+                photo_mxc = await download_and_upload_file(
+                    headimg, self.default_mxid_intent, self.config
+                )
                 self.avatar_url = photo_mxc
             else:
                 self.avatar_url = ContentURI("")
             try:
                 await self.default_mxid_intent.set_avatar_url(self.avatar_url)
             except Exception:
+                # TODO: may want to clear avatar_url when api fails
                 self.log.exception("Failed to set avatar")
                 return False
+            self.headimg = headimg
             return True
         return False
 
+    async def _update_name(self, name: str) -> bool:
+        if name != self.name:
+            if name:
+                try:
+                    await self.default_mxid_intent.set_displayname(name)
+                except Exception:
+                    self.log.exception("Failed to set displayname")
+                    return False
+                self.name = name
+                return True
+        return False
+
+    async def update_info(
+        self,
+        wechat_user: WechatUser = None,
+        wechat_user_detail: WechatUserDetail = None,
+        chat_room_nick: ChatRoomNick = None,
+    ) -> None:
+        name = None
+        if chat_room_nick and chat_room_nick.nick:
+            name = chat_room_nick.nick
+        if wechat_user:
+            for field in fields(WechatUser):
+                if val := getattr(wechat_user, field.name):
+                    if field.name == "name":
+                        name = val
+                    elif val != getattr(self, field.name):
+                        setattr(self, field.name, val)
+        await self._update_name(name)
+
+        headimg = None
+        if wechat_user and wechat_user.headimg:
+            headimg = wechat_user.headimg
+        if wechat_user_detail:
+            if (
+                wechat_user_detail.little_headimg
+                and wechat_user_detail.little_headimg != self.headimg
+            ):
+                headimg = wechat_user_detail.little_headimg
+            if (
+                wechat_user_detail.big_headimg
+                and wechat_user_detail.big_headimg != self.headimg
+            ):
+                headimg = wechat_user_detail.big_headimg
+        await self._update_avatar(headimg)
+        await self.save()
+
+    def intent_for(self, portal: "p.Portal") -> IntentAPI:
+        if portal.wxid == self.wxid:
+            return self.default_mxid_intent
+        return self.intent
+
     @classmethod
     @async_getter_lock
-    async def get_by_wxid(cls, wxid: WechatID, create: bool = False) -> Optional["Puppet"]:
+    async def get_by_wxid(
+        cls, wxid: WechatID, create: bool = False
+    ) -> Optional["Puppet"]:
         if wxid in cls.by_wxid:
             return cls.by_wxid[wxid]
-        
+
         puppet = cast(Puppet, await super().get_by_wxid(wxid))
         if puppet:
             puppet._postinit()
@@ -121,7 +183,9 @@ class Puppet(DBPuppet, BasePuppet):
 
     @classmethod
     @async_getter_lock
-    async def get_by_mxid(cls, mxid: UserID, create: bool = False) -> Optional["Puppet"]:
+    async def get_by_mxid(
+        cls, mxid: UserID, create: bool = False
+    ) -> Optional["Puppet"]:
         wxid = cls.get_id_from_mxid(mxid)
         if wxid:
             return await cls.get_by_wxid(wxid, create)

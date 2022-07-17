@@ -12,6 +12,7 @@ async def upgrade_v1(conn: Connection) -> None:
         receiver    TEXT,
         mxid        TEXT,
         name        TEXT,
+        avatar_url  TEXT,
         encrypted   BOOLEAN NOT NULL DEFAULT false,
         PRIMARY KEY (wxid, receiver)
     )""")
@@ -23,16 +24,17 @@ async def upgrade_v1(conn: Connection) -> None:
         notice_room TEXT
     )""")
     await conn.execute("""CREATE TABLE puppet (
-        wxid         TEXT PRIMARY KEY,
-        headimg      TEXT,
-        name         TEXT,
-        remarks      TEXT,
-        wxcode       TEXT,
-        custom_mxid  TEXT,
-        access_token TEXT,
-        next_batch   TEXT,
-        base_url     TEXT,
-        avatar_url   TEXT
+        wxid          TEXT PRIMARY KEY,
+        headimg       TEXT,
+        name          TEXT,
+        remarks       TEXT,
+        wxcode        TEXT,
+        is_registered BOOLEAN NOT NULL DEFAULT false,
+        custom_mxid   TEXT,
+        access_token  TEXT,
+        next_batch    TEXT,
+        base_url      TEXT,
+        avatar_url    TEXT
     )""")
     await conn.execute("""CREATE TABLE message (
         mxid    TEXT NOT NULL,

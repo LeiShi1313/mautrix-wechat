@@ -1,6 +1,6 @@
 from typing import NewType
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 class WechatID(str):
@@ -16,6 +16,7 @@ class WechatUser:
     remarks: str
     wxcode: str
     wxid: WechatID
+    chat_room_members: list[WechatID] = field(default_factory=list)
 
     @property
     def is_chatroom(self):
@@ -38,7 +39,7 @@ class ChatRoomNick:
 class Message:
     id: str
     source: WechatID
-    user: WechatID
+    sender: WechatID
     time: datetime
 
 @dataclass

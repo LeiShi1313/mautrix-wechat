@@ -20,6 +20,7 @@ class Puppet:
     name: str
     remarks: str
     wxcode: str
+    is_registered: bool
 
     custom_mxid: Optional[UserID]
     access_token: Optional[str]
@@ -29,9 +30,9 @@ class Puppet:
 
     async def insert(self) -> None:
         q = (
-            "INSERT INTO puppet (wxid, headimg, name, remarks, wxcode, "
+            "INSERT INTO puppet (wxid, headimg, name, remarks, wxcode, is_registered, "
             "                    custom_mxid, access_token, next_batch, base_url, avatar_url) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
         )
         await self.db.execute(
             q,
@@ -40,6 +41,7 @@ class Puppet:
             self.name,
             self.remarks,
             self.wxcode,
+            self.is_registered,
             self.custom_mxid,
             self.access_token,
             self.next_batch,
@@ -49,8 +51,8 @@ class Puppet:
 
     async def save(self) -> None:
         q = (
-            "UPDATE puppet SET headimg=$2, name=$3, remarks=$4, wxcode=$5, "
-            "                  custom_mxid=$6, access_token=$7, next_batch=$8, base_url=$9, avatar_url=$10 "
+            "UPDATE puppet SET headimg=$2, name=$3, remarks=$4, wxcode=$5, is_registered=$6, "
+            "                  custom_mxid=$7, access_token=$8, next_batch=$9, base_url=$10, avatar_url=$11 "
             "WHERE wxid=$1"
         )
         await self.db.execute(
@@ -60,6 +62,7 @@ class Puppet:
             self.name,
             self.remarks,
             self.wxcode,
+            self.is_registered,
             self.custom_mxid,
             self.access_token,
             self.next_batch,
@@ -70,7 +73,7 @@ class Puppet:
     @classmethod
     async def get_by_wxid(cls, wxid: WechatID) -> Optional["Puppet"]:
         q = (
-            "SELECT wxid, headimg, name, remarks, wxcode, "
+            "SELECT wxid, headimg, name, remarks, wxcode, is_registered, "
             "       custom_mxid, access_token, next_batch, base_url, avatar_url "
             "FROM puppet WHERE wxid=$1"
         )
@@ -82,7 +85,7 @@ class Puppet:
     @classmethod
     async def get_by_custom_mxid(cls, mxid: UserID) -> Optional["Puppet"]:
         q = (
-            "SELECT wxid, headimg, name, remarks, wxcode, "
+            "SELECT wxid, headimg, name, remarks, wxcode, is_registered, "
             "       custom_mxid, access_token, next_batch, base_url, avatar_url "
             "FROM puppet WHERE custom_mxid=$1"
         )
@@ -94,7 +97,7 @@ class Puppet:
     @classmethod
     async def all_with_custom_mxid(cls) -> List["Puppet"]:
         q = (
-            "SELECT wxid, headimg, name, remarks, wxcode, "
+            "SELECT wxid, headimg, name, remarks, wxcode, is_registered, "
             "       custom_mxid, access_token, next_batch, base_url, avatar_url "
             "FROM puppet WHERE custom_mxid IS NOT NULL"
         )
