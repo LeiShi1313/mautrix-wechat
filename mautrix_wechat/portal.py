@@ -205,13 +205,13 @@ class Portal(DBPortal, BasePortal):
                 raise IgnoredMessageError(f"Message type {content.msgtype} not supported")
         except Exception as e:
             self.log.exception(f"Failed to bridge {event_id}: {e}")
-            await self._send_bridge_error(
-                sender,
-                e,
-                event_id,
-                EventType.ROOM_MESSAGE,
-                message_type=content.msgtype,
-            )
+            # await self._send_bridge_error(
+            #     sender,
+            #     e,
+            #     event_id,
+            #     EventType.ROOM_MESSAGE,
+            #     message_type=content.msgtype,
+            # )
             raise
         
     async def handle_message(
@@ -266,6 +266,23 @@ class Portal(DBPortal, BasePortal):
             return None
         return await p.Puppet.get_by_wxid(self.wxid, create=True)
 
+    def _get_name(self, info: Optional[WechatID] = None, is_self: bool = False) -> Optional[str]:
+        name = None
+        if self.is_direct:
+            if is_self:
+                name = "FileHelper"
+            elif info and info.name:
+                name = info.name + " (Wechat)"
+            else:
+                name = "未知私聊"
+        elif info and info.name:
+            name = info.name
+        elif info.chat_room_members:
+            name = f"群聊 ({len(info.chat_room_members)})"
+        else:
+            name = "未命名群聊"
+        return name
+
     async def _update_name(self, name: str, save: bool = False) -> bool:
         if self.name == name:
             return False
@@ -287,15 +304,15 @@ class Portal(DBPortal, BasePortal):
         return True
 
     async def update_info(
-        self, source: u.User, info: Optional[WechatUser] = None
+        self, user: u.User, info: Optional[WechatUser] = None
     ) -> None:
         changed = False
-        self.log.debug(f"Updating info for {self.mxid}")
+        self.log.debug(f"Updating portal info for {self.mxid} {self.name}")
         try:
             if info:
                 # TODO: not sure if name and avatar need to be updated in this case
                 # becasue we're calling update_bridge_info anyway
-                changed = await self._update_name(info.name)
+                changed = await self._update_name(self._get_name(info, user.wxid == self.wxid))
                 changed = await self._update_avatar(info.headimg) or changed
         except Exception:
             self.log.exception(f"Failed to update info for {self.mxid}")
@@ -351,20 +368,7 @@ class Portal(DBPortal, BasePortal):
             # TODO: not sure if this is needed
             await puppet.update_info(info)
 
-        name = None
-        if self.is_direct:
-            if user.wxid == self.wxid:
-                name = self.name = "FileHelper"
-            elif info and info.name:
-                name = self.name = info.name + " (Wechat)"
-            else:
-                name = self.name = "未知私聊"
-        elif info and info.name:
-            name = self.name = info.name
-        elif info.chat_room_members:
-            name = self.name = f"群聊 ({len(info.chat_room_members)})"
-        else:
-            name = self.name = "未命名群聊"
+        name = self.name = self._get_name(info, user.wxid == self.wxid)
 
         if info and info.headimg:
             self.avatar_url = info.headimg
