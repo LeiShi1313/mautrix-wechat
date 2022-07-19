@@ -45,7 +45,7 @@ class WechatHandler(WechatClient):
             # TODO: this will actually block the start action?
             self.log.warning("No personal info found, try again in 5 seconds...")
             await asyncio.sleep(5)
-            return self.fetch_personal_info()
+            return await self.fetch_personal_info()
 
         try:
             user = await u.User.get_by_wxid(info.wxid)
@@ -140,7 +140,22 @@ class WechatHandler(WechatClient):
         return sender, portal
 
     async def on_txt_message(self, msg: TxtMessage) -> None:
-        print(f"Received txt message: {msg}")
+        self.log.trace(f"Received txt message: {msg}")
+        return await self.handle_message(msg)
+
+    async def on_at_message(self, msg: TxtMessage) -> None:
+        self.log.trace(f"Received at message: {msg}")
+        # return await self.handle_message(msg)
+
+    async def on_pic_message(self, msg: PicMessage) -> None:
+        self.log.trace(f"Received pic message: {msg}")
+        return await self.handle_message(msg)
+
+    async def on_txt_cite_message(self, msg: TxtCiteMessage) -> None:
+        self.log.trace(f"Received txt cite message: {msg}")
+        return await self.handle_message(msg)
+
+    async def handle_message(self, msg: Message) -> None:
         sender, portal = await self.get_msg_info(msg)
 
         try:
@@ -157,13 +172,5 @@ class WechatHandler(WechatClient):
             if portal.mxid:
                 await portal.update_info(self.user, self._contact_list.get(msg.source))
         except Exception:
-            self.log.exception("Error handling txt message", exc_info=True)
+            self.log.exception(f"Error handling message: {msg}", exc_info=True)
 
-    async def on_at_message(self, msg: TxtMessage) -> None:
-        print(f"Received at message: {msg}")
-
-    async def on_pic_message(self, msg: PicMessage) -> None:
-        print(f"Received pic message: {msg}")
-
-    async def on_txt_cite_message(self, msg: TxtCiteMessage) -> None:
-        print(f"Received txt cite message: {msg}")

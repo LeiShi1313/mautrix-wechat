@@ -1,4 +1,4 @@
-from typing import NewType
+from typing import Optional
 from datetime import datetime
 from dataclasses import dataclass, field
 
@@ -48,8 +48,8 @@ class TxtMessage(Message):
 
 @dataclass
 class PicMessage(Message):
-    # TODO: decrypt pic message
-    content: str
+    msg: Optional[str]
+    path: Optional[str]
 
 @dataclass
 class TxtCiteMessage(Message):

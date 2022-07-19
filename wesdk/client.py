@@ -1,8 +1,12 @@
 from asyncio import futures
+import os
 import sys
 import json
 import asyncio
 import logging
+from pathlib import Path
+from lxml import etree
+from io import StringIO
 from uuid import uuid4
 from queue import Queue
 from abc import ABCMeta, abstractmethod
@@ -16,6 +20,7 @@ from websockets import connect
 from mautrix.util.logging import TraceLogger
 
 from wesdk import query
+from wesdk.image import ImageDecodeError, WechatImageDecoder
 from wesdk.types import (
     ChatRoomNick,
     WechatID,
@@ -199,7 +204,7 @@ class WechatClient(metaclass=ClientBase):
         msg_id = msg.get("id")
         # TODO: future will break if not found
         future, room_id = self._futures.pop(msg_id, (None, None))
-        for chat_room in msg.get("content", []):
+        for chat_room in msg.get("content", {}):
             if chat_room_id := chat_room.get("room_id"):
                 if room_id and chat_room_id == room_id:
                     return future.set_result(
@@ -284,17 +289,47 @@ class WechatClient(metaclass=ClientBase):
     @register(query.RECV_PIC_MSG)
     async def handle_recv_pic_msg(self, msg) -> None:
         if content := msg.get("content"):
-            await self.on_pic_message(
-                PicMessage(
-                    id=msg.get("id"),
-                    source=WechatID(content.get("id1")),
-                    sender=WechatID(
-                        content.get("id2") if content.get("id2") else content.get("id1")
-                    ),
-                    time=parser.parse(msg.get("time")),
-                    content=content.get("content"),
+            try:
+                if "WECHAT_FILES_DIR" not in os.environ:
+                    raise ImageDecodeError("WECHAT_FILES_DIR not set")
+                wechat_files_dir = os.environ["WECHAT_FILES_DIR"]
+                parsed = etree.fromstring(content.get('content'))
+                keys = parsed.xpath("//img/@aeskey")
+                if not keys:
+                    raise ImageDecodeError("No aeskey found")
+                key = keys[0]
+
+                # Try to find full image first
+                use_thumb = False
+                img_file = Path(wechat_files_dir).joinpath(content.get('detail').replace('\\', '/'))
+                if not img_file.exists():
+                    use_thumb = True
+                    img_file = Path(wechat_files_dir).joinpath(content.get('thumb').replace('\\', '/'))
+                if not img_file.exists():
+                    raise ImageDecodeError("No .dat file found")
+                
+                await self.on_pic_message(
+                    PicMessage(
+                        id=msg.get("id"),
+                        source=WechatID(content.get("id1")),
+                        sender=WechatID(
+                            content.get("id2") if content.get("id2") else content.get("id1")
+                        ),
+                        time=parser.parse(msg.get("time")),
+                        msg='thumb' if use_thumb else None,
+                        path=Path(WechatImageDecoder.decode(str(img_file.absolute()))).absolute()
+                    )
                 )
-            )
+            except Exception as e:
+                await self.on_pic_message(
+                    PicMessage(
+                        id=msg.get("id"),
+                        source=WechatID(content.get("id1")),
+                        sender=WechatID(
+                            content.get("id2") if content.get("id2") else content.get("id1")
+                        ),
+                        msg=str(e),
+                        path=None))
         else:
             self.logger.warning(f"Received malformatted pic message: {msg}")
 
@@ -349,7 +384,7 @@ class WechatClient(metaclass=ClientBase):
     ) -> list[WechatID]:
         msg_id, future = self.getset_future(room_id)
         self._pending_messages.put(
-            query.get_chatroom_member(room_id=room_id or "null", msg_id=msg_id)
+            query.get_chatroom_member(roomid=room_id or "null", msg_id=msg_id)
         )
         return await future
 
@@ -435,12 +470,12 @@ async def test(we: WechatClient):
     info = await we.get_personal_info()
     await we.get_contact_list()
     print(info)
-    # for user in await we.get_contact_list():
-    #     if user.is_chatroom:
-    #         print(user)
-    #         members  = await we.get_chatroom_member(user.wxid)
-    #         nicks = await asyncio.gather(*[we.get_chatroom_member_nick(user.wxid, m) for m in members])
-    #         print(nicks)
+    for user in await we.get_contact_list():
+        if user.is_chatroom:
+            print(user)
+            members  = await we.get_chatroom_member(user.wxid)
+            nicks = await asyncio.gather(*[we.get_chatroom_member_nick(user.wxid, m) for m in members])
+            print(nicks)
 
 
 if __name__ == "__main__":

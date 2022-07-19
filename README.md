@@ -5,7 +5,7 @@ A Matrix-Wechat puppeting bridge, based on https://github.com/ChisBread/wechat-b
 # TODO:
 
 - [x] 接收微信文本消息
-- [ ] 接收微信图片消息 
+- [x] 接收微信图片消息 
 - [ ] 接收微信引用消息
   - [ ] 接收链接
   - [ ] 就收Quote消息

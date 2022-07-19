@@ -77,7 +77,7 @@ class Portal(DBPortal, BasePortal):
     _main_intent: Optional[IntentAPI]
     _create_room_lock: asyncio.Lock
     _send_lock: PortalSendLock
-    _msg_dedup: deque[tuple[WechatID, WechatID, str, datetime]]
+    _msg_dedup: deque[tuple[str, WechatID, WechatID, datetime]]
 
     @classmethod
     def init_cls(cls, bridge: "WechatBridge") -> None:
@@ -187,6 +187,13 @@ class Portal(DBPortal, BasePortal):
             await DBMessage.delete_all(self.mxid)
         self.deleted = True
 
+    async def _send_delivery_receipt(self, event_id: EventID) -> None:
+        if self.config["bridge.delivery_receipts"]:
+            try:
+                await self.az.intent.mark_read(self.mxid, event_id)
+            except Exception:
+                self.log.exception("Failed to send delivery receipt for %s", event_id)
+
     async def handle_matrix_message(
         self, sender: u.User, content: MessageEventContent, event_id: EventID
     ) -> None:
@@ -228,27 +235,27 @@ class Portal(DBPortal, BasePortal):
                     f"Failed to create room for incoming message ({msg.time}): {msg.content}"
                 )
                 return
-        if (msg.source, msg.sender, msg.content, msg.time) in self._msg_dedup:
+        if (msg.id, msg.source, msg.sender, msg.time) in self._msg_dedup:
             self.log.debug(
-                f"Ignoring message {msg.content} by {msg.sender} in {msg.source} at {msg.time} as it was already handled"
+                f"Ignoring message by {msg.sender} in {msg.source} at {msg.time} as it was already handled: {msg}"
             )
             return
-        self._msg_dedup.appendleft((msg.source, msg.sender, msg.content, msg.time))
+        self._msg_dedup.appendleft((msg.id, msg.source, msg.sender, msg.time))
 
         if await DBMessage.get_by_wechat_id(
             msg.sender, msg.source, self.wxid, msg.time.timestamp()
         ):
             self.log.debug(
-                f"Ignoring message {msg.content} by {msg.sender} in {msg.source} at {msg.time} as it was already handled"
+                f"Ignoring message by {msg.sender} in {msg.source} at {msg.time} as it was already handled: {msg}"
             )
             return
         self.log.debug(
-            f"Start handling message by {msg.sender} in {msg.source} at {msg.time}"
+            f"Start handling message {msg.id} by {msg.sender} in {msg.source} at {msg.time}"
         )
-        self.log.trace(f"Message content: {msg.content}")
+        self.log.trace(f"Message: {msg}")
 
         intent = sender.intent_for(self)
-        content = await fmt.wechat_to_matrix(msg)
+        content = await fmt.wechat_to_matrix(msg, self)
         event_id = await self._send_message(intent, content, timestamp=msg.time)
         await DBMessage(event_id, self.mxid, msg.id, msg.sender, msg.source, user.wxid, datetime.timestamp(msg.time)).insert()
 

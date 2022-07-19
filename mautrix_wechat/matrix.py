@@ -22,7 +22,7 @@ class MatrixHandler(BaseMatrixHandler):
         super().__init__(bridge=bridge)
 
     
-    async def send_welcome_message(self, room_id: RoomID, inviter: u.User) -> None:
+    async def send_welcome_message(self, room_id: RoomID, inviter: "u.User") -> None:
         await super().send_welcome_message(room_id, inviter)
         if not inviter.notice_room:
             inviter.notice_room = room_id
