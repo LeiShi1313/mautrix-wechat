@@ -126,6 +126,8 @@ class WechatHandler(WechatClient):
                         puppet.name = user.name
                         puppet.remarks = user.remarks
                         puppet.wxcode = user.wxcode
+                        # TODO: saved twice here
+                        await puppet.update_info(wechat_user=user)
                         await puppet.save()
                     except Exception:
                         self.log.exception(

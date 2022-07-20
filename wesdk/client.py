@@ -287,17 +287,14 @@ class WechatClient(metaclass=ClientBase):
         await self.on_at_message(self, msg)
 
     @register(query.RECV_PIC_MSG)
-    async def handle_recv_pic_msg(self, msg) -> None:
+    async def handle_recv_pic_msg(self, msg, waited: bool = False) -> None:
         if content := msg.get("content"):
             try:
                 if "WECHAT_FILES_DIR" not in os.environ:
                     raise ImageDecodeError("WECHAT_FILES_DIR not set")
                 wechat_files_dir = os.environ["WECHAT_FILES_DIR"]
-                parsed = etree.fromstring(content.get('content'))
-                keys = parsed.xpath("//img/@aeskey")
-                if not keys:
-                    raise ImageDecodeError("No aeskey found")
-                key = keys[0]
+                # TODO: wait for the file to be downloaded
+                await asyncio.sleep(3)
 
                 # Try to find full image first
                 use_thumb = False
@@ -328,6 +325,7 @@ class WechatClient(metaclass=ClientBase):
                         sender=WechatID(
                             content.get("id2") if content.get("id2") else content.get("id1")
                         ),
+                        time=parser.parse(msg.get("time")),
                         msg=str(e),
                         path=None))
         else:
@@ -470,12 +468,13 @@ async def test(we: WechatClient):
     info = await we.get_personal_info()
     await we.get_contact_list()
     print(info)
-    for user in await we.get_contact_list():
-        if user.is_chatroom:
-            print(user)
-            members  = await we.get_chatroom_member(user.wxid)
-            nicks = await asyncio.gather(*[we.get_chatroom_member_nick(user.wxid, m) for m in members])
-            print(nicks)
+    print(await we.send_msg(r"c:\\users\\app\\users\\app\\Temp\\1658342210.png", "wxid_v6noi1mexlok22", "wxid_v6noi1mexlok22"))
+    # for user in await we.get_contact_list():
+    #     if user.is_chatroom:
+    #         print(user)
+    #         members  = await we.get_chatroom_member(user.wxid)
+    #         nicks = await asyncio.gather(*[we.get_chatroom_member_nick(user.wxid, m) for m in members])
+    #         print(nicks)
 
 
 if __name__ == "__main__":

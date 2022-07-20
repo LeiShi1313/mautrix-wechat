@@ -16,11 +16,12 @@ from typing import (
 from uuid import UUID
 from venv import create
 
+from mautrix.util.message_send_checkpoint import MessageSendCheckpointStatus
 from mautrix.appservice import AppService, IntentAPI
 from mautrix.errors import MatrixError
 
 # from mausignald.types import Address, Contact, Profile
-from mautrix.bridge import BasePortal, puppet
+from mautrix.bridge import BasePortal, puppet, async_getter_lock
 from mautrix.types import (
     BeeperMessageStatusEventContent,
     ContentURI,
@@ -55,6 +56,7 @@ if TYPE_CHECKING:
 
 StateBridge = EventType.find("m.bridge", EventType.Class.STATE)
 StateHalfShotBridge = EventType.find("uk.half-shot.bridge", EventType.Class.STATE)
+
 
 class BridgingError(Exception):
     pass
@@ -97,7 +99,12 @@ class Portal(DBPortal, BasePortal):
         encrypted: bool = False,
     ) -> None:
         super().__init__(
-            wxid=wxid, receiver=receiver, mxid=mxid, name=name, avatar_url=avatar_url, encrypted=encrypted
+            wxid=wxid,
+            receiver=receiver,
+            mxid=mxid,
+            name=name,
+            avatar_url=avatar_url,
+            encrypted=encrypted,
         )
         BasePortal.__init__(self)
         self.deleted = False
@@ -155,6 +162,7 @@ class Portal(DBPortal, BasePortal):
         return info
 
     @classmethod
+    @async_getter_lock
     async def get_by_wxid(
         cls, wxid: WechatID, receiver: Optional[WechatID], create: bool = False
     ) -> Optional["Portal"]:
@@ -169,6 +177,21 @@ class Portal(DBPortal, BasePortal):
             await portal.insert()
             await portal._postinit()
         return portal
+
+    @classmethod
+    @async_getter_lock
+    async def get_by_mxid(cls, mxid: RoomID) -> Optional["Portal"]:
+        try:
+            return cls.by_mxid[mxid]
+        except KeyError:
+            pass
+
+        portal = cast(cls, await super().get_by_mxid(mxid))
+        if portal:
+            await portal._postinit()
+            return portal
+
+        return None
 
     async def delete(self) -> None:
         try:
@@ -193,6 +216,55 @@ class Portal(DBPortal, BasePortal):
                 await self.az.intent.mark_read(self.mxid, event_id)
             except Exception:
                 self.log.exception("Failed to send delivery receipt for %s", event_id)
+                
+    async def _send_message_status(self, event_id: EventID, err: Exception | None) -> None:
+        if not self.config["bridge.message_status_events"]:
+            return
+        intent = self.az.intent if self.encrypted else self.main_intent
+        status = BeeperMessageStatusEventContent(
+            network=self.bridge_info_state_key,
+            relates_to=RelatesTo(
+                rel_type=RelationType.REFERENCE,
+                event_id=event_id,
+            ),
+            success=err is None,
+        )
+        if err:
+            status.reason = MessageStatusReason.GENERIC_ERROR
+            status.error = str(err)
+            status.is_certain = True
+            status.can_retry = not isinstance(err, IgnoredMessageError)
+
+        await intent.send_message_event(
+            room_id=self.mxid,
+            event_type=EventType.BEEPER_MESSAGE_STATUS,
+            content=status,
+        )
+
+    async def _send_bridge_error(
+        self,
+        sender: u.User,
+        err: Exception,
+        event_id: EventID,
+        event_type: EventType,
+        message_type: MessageType | None = None,
+        msg: str | None = None,
+    ) -> None:
+        sender.send_remote_checkpoint(
+            MessageSendCheckpointStatus.PERM_FAILURE,
+            event_id,
+            self.mxid,
+            event_type,
+            message_type=message_type,
+            error=err,
+        )
+
+        if self.config["bridge.delivery_error_reports"]:
+            await self._send_message(
+                self.main_intent,
+                TextMessageEventContent(msgtype=MessageType.NOTICE, body=msg or str(err)),
+            )
+        await self._send_message_status(event_id, err)
 
     async def handle_matrix_message(
         self, sender: u.User, content: MessageEventContent, event_id: EventID
@@ -203,24 +275,25 @@ class Portal(DBPortal, BasePortal):
             elif not content.body:
                 raise IgnoredMessageError("Message doesn't have a body")
 
-            if content.msgtype in (MessageType.TEXT, ):
+            if content.msgtype in (MessageType.TEXT,):
                 msg = await fmt.matrix_to_wechat(content)
                 async with self._send_lock(sender.wxid):
                     await sender.client.send_msg(msg, self.wxid, self.wxid)
                 # await self._handle_matrix_text(sender, content, event_id)
             else:
-                raise IgnoredMessageError(f"Message type {content.msgtype} not supported")
+                raise IgnoredMessageError(
+                    f"Message type {content.msgtype} not supported"
+                )
         except Exception as e:
             self.log.exception(f"Failed to bridge {event_id}: {e}")
-            # await self._send_bridge_error(
-            #     sender,
-            #     e,
-            #     event_id,
-            #     EventType.ROOM_MESSAGE,
-            #     message_type=content.msgtype,
-            # )
-            raise
-        
+            await self._send_bridge_error(
+                sender,
+                e,
+                event_id,
+                EventType.ROOM_MESSAGE,
+                message_type=content.msgtype,
+            )
+
     async def handle_message(
         self,
         user: u.User,
@@ -257,8 +330,15 @@ class Portal(DBPortal, BasePortal):
         intent = sender.intent_for(self)
         content = await fmt.wechat_to_matrix(msg, self)
         event_id = await self._send_message(intent, content, timestamp=msg.time)
-        await DBMessage(event_id, self.mxid, msg.id, msg.sender, msg.source, user.wxid, datetime.timestamp(msg.time)).insert()
-
+        await DBMessage(
+            event_id,
+            self.mxid,
+            msg.id,
+            msg.sender,
+            msg.source,
+            user.wxid,
+            datetime.timestamp(msg.time),
+        ).insert()
 
     def _get_invite_content(self, double_puppet: Optional[p.Puppet]) -> dict[str, Any]:
         invite_content = {}
@@ -273,7 +353,9 @@ class Portal(DBPortal, BasePortal):
             return None
         return await p.Puppet.get_by_wxid(self.wxid, create=True)
 
-    def _get_name(self, info: Optional[WechatID] = None, is_self: bool = False) -> Optional[str]:
+    def _get_name(
+        self, info: Optional[WechatID] = None, is_self: bool = False
+    ) -> Optional[str]:
         name = None
         if self.is_direct:
             if is_self:
@@ -284,7 +366,7 @@ class Portal(DBPortal, BasePortal):
                 name = "未知私聊"
         elif info and info.name:
             name = info.name
-        elif info.chat_room_members:
+        elif info and info.chat_room_members:
             name = f"群聊 ({len(info.chat_room_members)})"
         else:
             name = "未命名群聊"
@@ -319,7 +401,9 @@ class Portal(DBPortal, BasePortal):
             if info:
                 # TODO: not sure if name and avatar need to be updated in this case
                 # becasue we're calling update_bridge_info anyway
-                changed = await self._update_name(self._get_name(info, user.wxid == self.wxid))
+                changed = await self._update_name(
+                    self._get_name(info, user.wxid == self.wxid)
+                )
                 changed = await self._update_avatar(info.headimg) or changed
         except Exception:
             self.log.exception(f"Failed to update info for {self.mxid}")
@@ -447,9 +531,7 @@ class Portal(DBPortal, BasePortal):
             try:
                 puppet: p.Puppet
                 if self.is_direct:
-                    await user.update_direct_chats(
-                        {self.main_intent.mxid: [self.mxid]}
-                    )
+                    await user.update_direct_chats({self.main_intent.mxid: [self.mxid]})
 
                 await puppet.intent.join_room_by_id(self.mxid)
             except MatrixError:
@@ -461,7 +543,9 @@ class Portal(DBPortal, BasePortal):
         #     await self._update_participants(source, info)
         return self.mxid
 
-    async def update_matrix_room(self, user: u.User, info: Optional[WechatUser] = None) -> None:
+    async def update_matrix_room(
+        self, user: u.User, info: Optional[WechatUser] = None
+    ) -> None:
         try:
             self.log.debug(f"Updating matrix room for {self.wxid}")
             puppet = await p.Puppet.get_by_custom_mxid(user.mxid)
@@ -474,9 +558,7 @@ class Portal(DBPortal, BasePortal):
                 puppet: p.Puppet
                 did_join = await puppet.intent.ensure_joined(self.mxid)
                 if did_join and self.is_direct:
-                    await user.update_direct_chats(
-                        {self.main_intent.mxid: [self.mxid]}
-                    )
+                    await user.update_direct_chats({self.main_intent.mxid: [self.mxid]})
             await self.update_info(user, info)
 
             self.log.debug(f"Matrix room updated: {self.mxid}")

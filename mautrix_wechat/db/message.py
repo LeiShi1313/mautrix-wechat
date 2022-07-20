@@ -92,7 +92,7 @@ class Message:
         return [cls(**row) for row in rows]
 
     @classmethod
-    async def find_by_sender_timestamp(
+    async def find_by_sender_content(
         cls, sender: WechatID, timestamp: int
     ) -> Optional["Message"]:
         q = (

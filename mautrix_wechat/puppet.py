@@ -67,7 +67,7 @@ class Puppet(DBPuppet, BasePuppet):
             base_url=base_url,
             avatar_url=avatar_url,
         )
-        self.default_mxid = self.get_mxid_from_wxid(wxid)
+        self.default_mxid = self.get_mxid_from_wxid(wxid, wxcode)
         self.default_mxid_intent = self.az.intent.user(self.default_mxid)
         self.intent = self._fresh_intent()
 
@@ -94,7 +94,8 @@ class Puppet(DBPuppet, BasePuppet):
             self.by_custom_mxid[self.custom_mxid] = self
 
     async def _update_avatar(self, headimg: str) -> bool:
-        if headimg != self.headimg:
+        if headimg and headimg != self.headimg:
+            self.log.debug(f"prev: {self.headimg} now: {headimg}")
             if headimg:
                 photo_mxc = await download_and_upload_file(
                     headimg, self.default_mxid_intent, self.config
@@ -130,6 +131,10 @@ class Puppet(DBPuppet, BasePuppet):
         wechat_user_detail: WechatUserDetail = None,
         chat_room_nick: ChatRoomNick = None,
     ) -> None:
+        self.log.debug(
+            f"Updating info, WechatUser: {wechat_user}, WechatUserDetail: {wechat_user_detail}, ChatRoomNick: {chat_room_nick}"
+        )
+        changed: bool = False
         name = None
         if chat_room_nick and chat_room_nick.nick:
             name = chat_room_nick.nick
@@ -140,24 +145,28 @@ class Puppet(DBPuppet, BasePuppet):
                         name = val
                     elif val != getattr(self, field.name):
                         setattr(self, field.name, val)
-        await self._update_name(name)
+        changed = await self._update_name(name)
 
         headimg = None
         if wechat_user and wechat_user.headimg:
             headimg = wechat_user.headimg
         if wechat_user_detail:
-            if (
-                wechat_user_detail.little_headimg
-                and wechat_user_detail.little_headimg != self.headimg
-            ):
+            detail_headimg = next(
+                (
+                    img
+                    for img in [
+                        wechat_user_detail.big_headimg,
+                        wechat_user_detail.little_headimg,
+                    ]
+                    if img
+                ),
+                None,
+            )
+            if detail_headimg and detail_headimg != self.headimg:
                 headimg = wechat_user_detail.little_headimg
-            if (
-                wechat_user_detail.big_headimg
-                and wechat_user_detail.big_headimg != self.headimg
-            ):
-                headimg = wechat_user_detail.big_headimg
-        await self._update_avatar(headimg)
-        await self.save()
+        changed = await self._update_avatar(headimg) or changed
+        if changed:
+            await self.save()
 
     def intent_for(self, portal: "p.Portal") -> IntentAPI:
         if portal.wxid == self.wxid:
@@ -206,5 +215,5 @@ class Puppet(DBPuppet, BasePuppet):
         return cls.mxid_template.parse(mxid)
 
     @classmethod
-    def get_mxid_from_wxid(cls, wxid: WechatID) -> UserID:
-        return UserID(cls.mxid_template.format_full(wxid))
+    def get_mxid_from_wxid(cls, wxid: WechatID, wxcode: Optional[WechatID]) -> UserID:
+        return UserID(cls.mxid_template.format_full(wxcode if wxcode else wxid))
