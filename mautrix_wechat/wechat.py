@@ -13,7 +13,14 @@ from mautrix.util.logging import TraceLogger
 from mautrix_wechat.db import Message as DBMessage
 from mautrix_wechat import user as u, portal as po, puppet as pu
 from wesdk.client import WechatClient
-from wesdk.types import Message, PicMessage, TxtMessage, TxtCiteMessage, WechatID, WechatUser
+from wesdk.types import (
+    Message,
+    PicMessage,
+    TxtMessage,
+    TxtCiteMessage,
+    WechatID,
+    WechatUser,
+)
 
 if TYPE_CHECKING:
     from .__main__ import WechatBridge
@@ -24,20 +31,45 @@ class WechatHandler(WechatClient):
     loop: asyncio.AbstractEventLoop
     user: Optional[u.User]
 
-    def __init__(self, ip: str, port: int, admin: str, bridge: "WechatBridge") -> None:
+    def __init__(
+        self,
+        ip: str,
+        port: int,
+        admin: str,
+        bridge: "WechatBridge",
+        can_relay: bool = False,
+        show_sender: bool = True,
+    ) -> None:
         self.admin = admin
         self.log = self.log.getChild(f"{ip}:{port}")
         super().__init__(ip, port, self.log, bridge.loop)
         self.user = None
+        self.can_relay = can_relay
+        self.show_sender = show_sender
 
     async def start(self) -> None:
         await self.connect()
-        fetched = await self.fetch_personal_info()
-        if fetched:
-            await self.fetch_contact_list()
+        self.loop.create_task(self._fetch_info())
+
+    async def manual_start(self, wxid: str, wxcode: str, wxname: str) -> None:
+        await self.connect()
+        self.manual_login(wxid, wxcode, wxname)
+        if await self._set_user_info(
+            WechatUser(headimg="", name=wxname, remarks="", wxcode=wxcode, wxid=wxid)
+        ):
+            self.loop.create_task(self._fetch_info(manual=True))
 
     async def stop(self) -> None:
         await self.disconnect()
+
+    async def _fetch_info(self, manual: bool = False) -> None:
+        try:
+            if manual or await self.fetch_personal_info():
+                await self.fetch_contact_list()
+        except asyncio.TimeoutError as e:
+            self.logger.info("Fetch info timeout, trying again in 5 seconds...")
+            await asyncio.sleep(5)
+            return await self._fetch_info(manual)
 
     async def fetch_personal_info(self) -> bool:
         info = await self.get_personal_info()
@@ -46,7 +78,9 @@ class WechatHandler(WechatClient):
             self.log.warning("No personal info found, try again in 5 seconds...")
             await asyncio.sleep(5)
             return await self.fetch_personal_info()
+        return await self._set_user_info(info)
 
+    async def _set_user_info(self, info: WechatUser) -> bool:
         try:
             user = await u.User.get_by_wxid(info.wxid)
             if not user:
@@ -74,7 +108,10 @@ class WechatHandler(WechatClient):
 
     async def fetch_contact_list(self) -> None:
         users = await self.get_contact_list()
-        await self.fetch_chatroom_members()
+        try:
+            await self.fetch_chatroom_members()
+        except asyncio.exceptions.TimeoutError:
+            pass
         for user in users:
             if user.wxid.endswith("chatroom"):
                 portal = await po.Portal.get_by_wxid(user.wxid, self.wx_id)
@@ -85,6 +122,8 @@ class WechatHandler(WechatClient):
                         )
                         await portal.insert()
                         await portal._postinit()
+                        if self.can_relay:
+                            await portal.set_relay_user(self.user)
                         self.log.debug(f"Created portal for {user.name} {user.wxid}")
                     except Exception:
                         self.log.exception(
@@ -101,6 +140,8 @@ class WechatHandler(WechatClient):
                         )
                 if portal.mxid:
                     await portal.update_matrix_room(self.user, user)
+                    if self.can_relay:
+                        await portal.set_relay_user(self.user)
             else:
                 puppet = await pu.Puppet.get_by_wxid(user.wxid)
                 if not puppet:
@@ -141,6 +182,9 @@ class WechatHandler(WechatClient):
         )
         return sender, portal
 
+    async def on_heart_beat_timeout(self) -> None:
+        self.log.error(f"Heart beat timeout, last hear beat: {self.last_heart_beat}")
+
     async def on_txt_message(self, msg: TxtMessage) -> None:
         self.log.trace(f"Received txt message: {msg}")
         return await self.handle_message(msg)
@@ -170,9 +214,10 @@ class WechatHandler(WechatClient):
             self.log.exception("Error updating puppet info", exc_info=True)
 
         try:
-            await portal.handle_message(self.user, sender, msg, self._contact_list.get(msg.source))
-            if portal.mxid:
+            await portal.handle_message(
+                self.user, sender, msg, self._contact_list.get(msg.source)
+            )
+            if portal.mxid and msg.source in self._contact_list:
                 await portal.update_info(self.user, self._contact_list.get(msg.source))
         except Exception:
             self.log.exception(f"Error handling message: {msg}", exc_info=True)
-

@@ -1,31 +1,34 @@
+import asyncio
 import logging
-from pydoc import cli
-from typing import TYPE_CHECKING, AsyncGenerator, Optional, cast, AsyncIterable, Awaitable
 from asyncio.tasks import sleep
 from datetime import datetime
+from pydoc import cli
+from typing import (TYPE_CHECKING, AsyncGenerator, AsyncIterable, Awaitable, Dict,
+                    Optional, cast)
 from uuid import UUID
-import asyncio
 
 from mautrix.appservice import AppService
 from mautrix.bridge import AutologinError, BaseUser, async_getter_lock
 from mautrix.types import RoomID, UserID
-from mautrix.util.logging import TraceLogger
 from mautrix.util.bridge_state import BridgeState, BridgeStateEvent
+from mautrix.util.logging import TraceLogger
 from mautrix.util.opt_prometheus import Gauge
+from wesdk.client import WechatClient
+from wesdk.types import (PicMessage, TxtCiteMessage, TxtMessage, WechatID,
+                         WechatUser)
 
-from mautrix_wechat import portal as po, puppet as pu
+from mautrix_wechat import portal as po
+from mautrix_wechat import puppet as pu
 from mautrix_wechat.config import Config
 from mautrix_wechat.db import User as DBUser
-from wesdk.client import WechatClient
-from wesdk.types import WechatID, WechatUser, TxtMessage, PicMessage, TxtCiteMessage
 
 if TYPE_CHECKING:
     from .__main__ import WechatBridge
 
 
 class User(DBUser, BaseUser):
-    by_mxid: dict[UserID, "User"] = {}
-    by_wxid: dict[WechatID, "User"] = {}
+    by_mxid: Dict[UserID, "User"] = {}
+    by_wxid: Dict[WechatID, "User"] = {}
     config: Config
     az: AppService
     loop: asyncio.AbstractEventLoop

@@ -1,5 +1,5 @@
 
-from typing import AsyncIterable
+from typing import AsyncIterable, Union, Optional
 
 import aiohttp
 from yarl import URL
@@ -10,7 +10,7 @@ from mautrix.appservice import IntentAPI
 
 
 async def upload_file(
-    data: bytes | bytearray | AsyncIterable[bytes], intent: IntentAPI, config: Config, filename: str | None = None
+    data: Union[bytes,bytearray,AsyncIterable[bytes]], intent: IntentAPI, config: Config, filename: Optional[str] = None
 ) -> ContentURI:
     mime = mimetype(data)
     return await intent.upload_media(
@@ -21,7 +21,7 @@ async def upload_file(
         )
 
 async def download_and_upload_file(
-    url: str, intent: IntentAPI, config: Config, filename: str | None = None
+    url: str, intent: IntentAPI, config: Config, filename: Optional[str] = None
 ) -> ContentURI:
     async with aiohttp.ClientSession() as session:
         resp = await session.get(URL(url))

@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 
 
 class ImageDecodeError(Exception):
@@ -7,7 +8,7 @@ class ImageDecodeError(Exception):
 class WechatImageDecoder:
 
     @classmethod
-    def decode(cls, dat_file) -> str | None:
+    def decode(cls, dat_file) -> Optional[str]:
         decoder = cls._get_decoder(dat_file)
         return decoder(dat_file)
 

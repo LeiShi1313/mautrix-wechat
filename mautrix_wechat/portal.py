@@ -12,16 +12,17 @@ from typing import (
     Tuple,
     Union,
     cast,
+    Deque
 )
 from uuid import UUID
 from venv import create
 
-from mautrix.util.message_send_checkpoint import MessageSendCheckpointStatus
+from lxml import etree
 from mautrix.appservice import AppService, IntentAPI
-from mautrix.errors import MatrixError
 
 # from mausignald.types import Address, Contact, Profile
-from mautrix.bridge import BasePortal, puppet, async_getter_lock
+from mautrix.bridge import BasePortal, async_getter_lock, puppet
+from mautrix.errors import MatrixError
 from mautrix.types import (
     BeeperMessageStatusEventContent,
     ContentURI,
@@ -41,15 +42,21 @@ from mautrix.types import (
     TextMessageEventContent,
     UserID,
 )
+from mautrix.util.message_send_checkpoint import MessageSendCheckpointStatus
 from mautrix.util.simple_template import SimpleTemplate
-from wesdk.types import Message as WechatMessage, WechatID, WechatUser
+from wesdk.types import Message as WechatMessage, PicMessage, TxtMessage, TxtCiteMessage
+from wesdk.types import WechatID, WechatUser
 
 import mautrix_wechat.user as u
-from mautrix_wechat import matrix as m, puppet as p, wechat as w
-from mautrix_wechat.config import Config
-from mautrix_wechat.db import Message as DBMessage, Portal as DBPortal
 from mautrix_wechat import formatter as fmt
+from mautrix_wechat import matrix as m
+from mautrix_wechat import puppet as p
+from mautrix_wechat import wechat as w
+from mautrix_wechat.config import Config
+from mautrix_wechat.db import Message as DBMessage
+from mautrix_wechat.db import Portal as DBPortal
 from mautrix_wechat.util.locks import PortalSendLock
+from mautrix_wechat.util.containers import SizedDict
 
 if TYPE_CHECKING:
     from .__main__ import WechatBridge
@@ -71,7 +78,7 @@ class Portal(DBPortal, BasePortal):
     by_wxid: Dict[Tuple[WechatID, WechatID], "Portal"] = {}
     config: Config
     matrix: "m.MatrixHandler"
-    signal: "w.WechatHandler"
+    wechat: "w.WechatHandler"
     az: AppService
     private_chat_portal_meta: bool
     deleted: bool
@@ -79,7 +86,8 @@ class Portal(DBPortal, BasePortal):
     _main_intent: Optional[IntentAPI]
     _create_room_lock: asyncio.Lock
     _send_lock: PortalSendLock
-    _msg_dedup: deque[tuple[str, WechatID, WechatID, datetime]]
+    _msg_dedup: Deque[Tuple[str, WechatID, WechatID, datetime]]
+    _msg_cache: Dict[Tuple[WechatID, WechatID, str], EventID]
 
     @classmethod
     def init_cls(cls, bridge: "WechatBridge") -> None:
@@ -110,9 +118,12 @@ class Portal(DBPortal, BasePortal):
         self.deleted = False
         self.log = self.log.getChild(self.wxid)
         self._main_intent = None
+        self.relay_user_id = None
+        self._relay_user = None
         self._create_room_lock = asyncio.Lock()
         self._send_lock = PortalSendLock()
         self._msg_dedup = deque(maxlen=100)
+        self._msg_cache = SizedDict(maxlen=100)
 
     async def _postinit(self) -> None:
         if self.wxid:
@@ -144,7 +155,7 @@ class Portal(DBPortal, BasePortal):
         return f"net.maunium.wechat://wechat/{self.wxid}"
 
     @property
-    def bridge_info(self) -> dict[str, Any]:
+    def bridge_info(self) -> Dict[str, Any]:
         info = {
             "bridgebot": self.az.bot_mxid,
             "creator": self.main_intent.mxid,
@@ -210,14 +221,26 @@ class Portal(DBPortal, BasePortal):
             await DBMessage.delete_all(self.mxid)
         self.deleted = True
 
+    def _set_msg_cache(self, msg: WechatMessage, event_id: EventID) -> None:
+        if isinstance(msg, TxtCiteMessage):
+            msg: TxtCiteMessage
+            title = etree.fromstring(msg.content).find("*//title")
+            if title is not None:
+                self._msg_cache[(msg.sender, msg.source, title.text.strip())] = event_id
+        elif isinstance(msg, TxtMessage):
+            msg: TxtMessage
+            self._msg_cache[(msg.sender, msg.source, msg.content)] = event_id
+
     async def _send_delivery_receipt(self, event_id: EventID) -> None:
         if self.config["bridge.delivery_receipts"]:
             try:
                 await self.az.intent.mark_read(self.mxid, event_id)
             except Exception:
                 self.log.exception("Failed to send delivery receipt for %s", event_id)
-                
-    async def _send_message_status(self, event_id: EventID, err: Exception | None) -> None:
+
+    async def _send_message_status(
+        self, event_id: EventID, err: Optional[Exception]
+    ) -> None:
         if not self.config["bridge.message_status_events"]:
             return
         intent = self.az.intent if self.encrypted else self.main_intent
@@ -247,8 +270,8 @@ class Portal(DBPortal, BasePortal):
         err: Exception,
         event_id: EventID,
         event_type: EventType,
-        message_type: MessageType | None = None,
-        msg: str | None = None,
+        message_type: Optional[MessageType] = None,
+        msg: Optional[str] = None,
     ) -> None:
         sender.send_remote_checkpoint(
             MessageSendCheckpointStatus.PERM_FAILURE,
@@ -260,10 +283,11 @@ class Portal(DBPortal, BasePortal):
         )
 
         if self.config["bridge.delivery_error_reports"]:
-            await self._send_message(
-                self.main_intent,
-                TextMessageEventContent(msgtype=MessageType.NOTICE, body=msg or str(err)),
+            msg = TextMessageEventContent(
+                msgtype=MessageType.NOTICE, body=msg or str(err)
             )
+            msg.set_reply(event_id)
+            await self._send_message(self.main_intent, msg)
         await self._send_message_status(event_id, err)
 
     async def handle_matrix_message(
@@ -276,9 +300,19 @@ class Portal(DBPortal, BasePortal):
                 raise IgnoredMessageError("Message doesn't have a body")
 
             if content.msgtype in (MessageType.TEXT,):
-                msg = await fmt.matrix_to_wechat(content)
                 async with self._send_lock(sender.wxid):
-                    await sender.client.send_msg(msg, self.wxid, self.wxid)
+                    if self.receiver == sender.wxid:
+                        msg, nick = await fmt.matrix_to_wechat(content, sender)
+                        data = await sender.client.send_msg(msg, self.wxid, self.wxid, nickname=nick or "null")
+                        self.log.debug(data)
+                    # TODO: maybe user get_relay_sender
+                    elif relay_user := await self.get_relay_user():
+                        if relay_user.client.can_relay:
+                            msg, nick = await fmt.matrix_to_wechat(content, sender, relay_user.client.show_sender)
+                            data = await relay_user.client.send_msg(msg, self.wxid, self.wxid, nickname=nick or "null")
+                            self.log.debug(data)
+                    else:
+                        raise IgnoredMessageError(f"Relaying message not supported!")
                 # await self._handle_matrix_text(sender, content, event_id)
             else:
                 raise IgnoredMessageError(
@@ -328,8 +362,10 @@ class Portal(DBPortal, BasePortal):
         self.log.trace(f"Message: {msg}")
 
         intent = sender.intent_for(self)
-        content = await fmt.wechat_to_matrix(msg, self)
+        content = await fmt.wechat_to_matrix(msg, self, self._msg_cache)
         event_id = await self._send_message(intent, content, timestamp=msg.time)
+        if len(getattr(msg, 'content', '')):
+            self._set_msg_cache(msg, event_id)
         await DBMessage(
             event_id,
             self.mxid,
@@ -340,7 +376,7 @@ class Portal(DBPortal, BasePortal):
             datetime.timestamp(msg.time),
         ).insert()
 
-    def _get_invite_content(self, double_puppet: Optional[p.Puppet]) -> dict[str, Any]:
+    def _get_invite_content(self, double_puppet: Optional[p.Puppet]) -> Dict[str, Any]:
         invite_content = {}
         if double_puppet:
             invite_content["fi.mau.will_auto_accept"] = True
@@ -465,8 +501,8 @@ class Portal(DBPortal, BasePortal):
             self.avatar_url = info.headimg
 
         power_levels = PowerLevelStateEventContent()
-        if self.is_direct:
-            power_levels.users[user.mxid] = 50
+        # TODO: maybe we want more fine-grained power level here
+        power_levels.users[user.mxid] = 100
         power_levels.users[self.main_intent.mxid] = 100
         initial_state = [
             {

@@ -1,0 +1,102 @@
+<?xml version="1.0"?>
+<msg>
+	<appmsg appid="" sdkver="0">
+		<title />
+		<des>[视频]
+林志颖车祸</des>
+		<action>view</action>
+		<type>24</type>
+		<showtype>0</showtype>
+		<content />
+		<url>https://support.weixin.qq.com/update/</url>
+		<dataurl />
+		<lowurl />
+		<lowdataurl />
+		<recorditem>&lt;recordinfo&gt;&lt;info&gt;[视频]
+林志颖车祸&lt;/info&gt;&lt;favusername&gt;wxid_odlqw1yb3gpq22&lt;/favusername&gt;&lt;datalist count="4"&gt;&lt;dataitem htmlid="WeNoteHtmlFile" datatype="8" dataid="2cb58e2fd6cd73084537c2b24e9bc476"&gt;&lt;head256md5&gt;f5fb4ea346e0b99365eb195c3bd849f0&lt;/head256md5&gt;&lt;datasourcepath&gt;/var/mobile/Containers/Data/Application/BADD1C99-E50F-416D-8D85-9FF0B87D1B63/Documents/586f1dd21f4d32be6687c1c00f005962/OpenData/b944484d5c6c9998ea12272ba940a0b2/458/2cb58e2fd6cd73084537c2b24e9bc476..htm&lt;/datasourcepath&gt;&lt;datafmt&gt;.htm&lt;/datafmt&gt;&lt;cdndatakey&gt;286e10bca1731ac556d0f5679453fe8f&lt;/cdndatakey&gt;&lt;datasize&gt;230&lt;/datasize&gt;&lt;cdndataurl&gt;3057020100044b304902010002046bc5c22202032f55f902042fd15eda020462da4b0b042439356362336636362d613362362d346662352d393831632d6364393736663166313864630204011400050201000405004c4f2900&lt;/cdndataurl&gt;&lt;fullmd5&gt;f5fb4ea346e0b99365eb195c3bd849f0&lt;/fullmd5&gt;&lt;/dataitem&gt;&lt;dataitem htmlid="WeNote_1" datatype="2" subtype="1" dataid="c784b09e978430f386f92afabdb50b5e"&gt;&lt;head256md5&gt;630a3ee726fbad9b4a6ab5a161b96e28&lt;/head256md5&gt;&lt;thumbsize&gt;74158&lt;/thumbsize&gt;&lt;cdnthumburl&gt;3057020100044b304902010002046bc5c22202032f55f902042fd15eda020462da4b0d042436363764386535332d346530622d343062652d626632382d6364333231363936656236610204011400010201000405004c4f2900&lt;/cdnthumburl&gt;&lt;thumbhead256md5&gt;76b59540aeeb6175abe9a59e7a8faff8&lt;/thumbhead256md5&gt;&lt;datasourcepath&gt;/var/mobile/Containers/Data/Application/BADD1C99-E50F-416D-8D85-9FF0B87D1B63/Documents/586f1dd21f4d32be6687c1c00f005962/OpenData/b944484d5c6c9998ea12272ba940a0b2/458/c784b09e978430f386f92afabdb50b5e.jpg&lt;/datasourcepath&gt;&lt;datafmt&gt;jpg&lt;/datafmt&gt;&lt;cdndatakey&gt;eb9780e2d77422ab308a0ff6d1742f5c&lt;/cdndatakey&gt;&lt;datasize&gt;279342&lt;/datasize&gt;&lt;thumbfullmd5&gt;9da95215e83ab14d73fb8f8f0a53fb55&lt;/thumbfullmd5&gt;&lt;cdnthumbkey&gt;159ff0e7ed5fa2eddcc9587e5e22b169&lt;/cdnthumbkey&gt;&lt;cdndataurl&gt;3057020100044b304902010002046bc5c22202032f55f902042fd15eda020462da4b0d042466343036626234392d633232612d343663362d386365372d6461323865613035306437660204011400010201000405004c4c6d00&lt;/cdndataurl&gt;&lt;fullmd5&gt;252b7923183d6a3666d8a7d4e64a32a9&lt;/fullmd5&gt;&lt;thumbsourcepath&gt;/var/mobile/Containers/Data/Application/BADD1C99-E50F-416D-8D85-9FF0B87D1B63/Documents/586f1dd21f4d32be6687c1c00f005962/OpenData/b944484d5c6c9998ea12272ba940a0b2/458/c784b09e978430f386f92afabdb50b5e.record_thumb&lt;/thumbsourcepath&gt;&lt;/dataitem&gt;&lt;dataitem htmlid="WeNote_2" datatype="4" dataid="563f4946d95437e5e129f25c52d7ceca"&gt;&lt;head256md5&gt;887bd2f6403693f073b2239f933c69dc&lt;/head256md5&gt;&lt;thumbsize&gt;36913&lt;/thumbsize&gt;&lt;cdnthumburl&gt;3057020100044b304902010002046bc5c22202032f55f902042fd15eda020462da4b0d042464623562393766612d376266622d343736302d626232632d6439333566376465363965630204011400010201000405004c51e500&lt;/cdnthumburl&gt;&lt;thumbhead256md5&gt;161283275b0c9c00e8d006690630c41d&lt;/thumbhead256md5&gt;&lt;datasourcepath&gt;/var/mobile/Containers/Data/Application/BADD1C99-E50F-416D-8D85-9FF0B87D1B63/Documents/586f1dd21f4d32be6687c1c00f005962/OpenData/b944484d5c6c9998ea12272ba940a0b2/458/563f4946d95437e5e129f25c52d7ceca.mp4&lt;/datasourcepath&gt;&lt;datafmt&gt;mp4&lt;/datafmt&gt;&lt;cdndatakey&gt;7aa81d19c8e529a98e9ec141fc194533&lt;/cdndatakey&gt;&lt;datasize&gt;1169441&lt;/datasize&gt;&lt;thumbfullmd5&gt;4fe4300b06f643172202cc571fcce7f5&lt;/thumbfullmd5&gt;&lt;cdnthumbkey&gt;5f64dc1dd2ba671fb144effe7037740e&lt;/cdnthumbkey&gt;&lt;cdndataurl&gt;3057020100044b30490201000204f2f5556002032f55f9020493d05eda020462da4352042438646236326437342d646335312d346334352d393935312d3234356535613635313639320204011400040201000405004c4c6d00&lt;/cdndataurl&gt;&lt;duration&gt;17&lt;/duration&gt;&lt;fullmd5&gt;83569c8e9391bbd69c0560e9925db18f&lt;/fullmd5&gt;&lt;thumbsourcepath&gt;/var/mobile/Containers/Data/Application/BADD1C99-E50F-416D-8D85-9FF0B87D1B63/Documents/586f1dd21f4d32be6687c1c00f005962/OpenData/b944484d5c6c9998ea12272ba940a0b2/458/563f4946d95437e5e129f25c52d7ceca.record_thumb&lt;/thumbsourcepath&gt;&lt;/dataitem&gt;&lt;dataitem htmlid="-1" datatype="1" dataid="b4c51826e9f913b65d19967bd7bd1201"&gt;&lt;datadesc&gt;林志颖车祸&lt;/datadesc&gt;&lt;/dataitem&gt;&lt;/datalist&gt;&lt;editusr&gt;wxid_odlqw1yb3gpq22&lt;/editusr&gt;&lt;edittime&gt;1658467150&lt;/edittime&gt;&lt;desc&gt;[视频]
+林志颖车祸&lt;/desc&gt;&lt;fromscene&gt;2&lt;/fromscene&gt;&lt;/recordinfo&gt;</recorditem>
+		<thumburl />
+		<messageaction />
+		<laninfo />
+		<extinfo />
+		<sourceusername />
+		<sourcedisplayname />
+		<commenturl />
+		<appattach>
+			<totallen>0</totallen>
+			<attachid />
+			<emoticonmd5></emoticonmd5>
+			<fileext />
+			<aeskey></aeskey>
+		</appattach>
+		<weappinfo>
+			<pagepath />
+			<username />
+			<appid />
+			<appservicetype>0</appservicetype>
+		</weappinfo>
+		<websearch />
+	</appmsg>
+	<fromusername>aheadjames</fromusername>
+	<scene>0</scene>
+	<appinfo>
+		<version>1</version>
+		<appname />
+	</appinfo>
+	<commenturl />
+</msg>
+
+
+
+
+
+<?xml version="1.0"?>
+<msg>
+	<appmsg appid="" sdkver="0">
+		<title />
+		<des />
+		<action />
+		<type>8</type>
+		<showtype>0</showtype>
+		<soundtype>0</soundtype>
+		<mediatagname />
+		<messageext />
+		<messageaction />
+		<content />
+		<contentattr>0</contentattr>
+		<url />
+		<lowurl />
+		<dataurl />
+		<lowdataurl />
+		<songalbumurl />
+		<songlyric />
+		<appattach>
+			<totallen>3874312</totallen>
+			<attachid>0:0:08ac4fe3ebb59c53d6b02b2cfc2f2ead</attachid>
+			<emoticonmd5>08ac4fe3ebb59c53d6b02b2cfc2f2ead</emoticonmd5>
+			<fileext>pic</fileext>
+			<cdnthumbaeskey>777865736867666d727a657461637068</cdnthumbaeskey>
+			<aeskey />
+			<cdnthumburl>3052020100044b3049020100020401f3581302033d11fd0204e5356db4020462da45c7042438643165643335612d396131622d343066352d383265622d3661666263313334336232350204010400030201000400</cdnthumburl>
+			<cdnthumblength>13626</cdnthumblength>
+			<cdnthumbwidth>169</cdnthumbwidth>
+			<cdnthumbheight>300</cdnthumbheight>
+			<cdnthumbmd5>07e7faf37a0d91e793eb69cfb806623a</cdnthumbmd5>
+		</appattach>
+		<extinfo />
+		<sourceusername />
+		<sourcedisplayname />
+		<thumburl />
+		<md5 />
+		<statextstr />
+		<directshare>0</directshare>
+		<recorditem><![CDATA[(null)]]></recorditem>
+	</appmsg>
+	<fromusername>wxid_sp73w5qtukft12</fromusername>
+	<scene>0</scene>
+	<appinfo>
+		<version>1</version>
+		<appname></appname>
+	</appinfo>
+	<commenturl></commenturl>
+</msg>

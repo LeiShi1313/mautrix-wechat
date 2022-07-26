@@ -6,3 +6,11 @@ config.yaml
 registration.yaml
 *.db
 *.pickle
+dist
+build
+.vscode
+.idea
+__pycache__
+__pypackages__
+mautrix-wechat.log
+Wechat_Files

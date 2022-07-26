@@ -9,14 +9,15 @@ from lxml import etree
 from io import StringIO
 from uuid import uuid4
 from queue import Queue
+from datetime import datetime, timedelta
 from abc import ABCMeta, abstractmethod
-from typing import Awaitable, Iterable, Optional, Union, Tuple
+from typing import Awaitable, Iterable, Optional, Union, Tuple, Dict, List
 from collections import defaultdict
 from dataclasses import asdict
 
 import aiohttp
 from dateutil import parser
-from websockets import connect
+from websockets import connect, ConnectionClosed
 from mautrix.util.logging import TraceLogger
 
 from wesdk import query
@@ -60,7 +61,7 @@ class WechatClient(metaclass=ClientBase):
     session: aiohttp.ClientSession
     handler_registry: dict
 
-    _contact_list: dict[WechatID, WechatUser]
+    _contact_list: Dict[WechatID, WechatUser]
 
     def __init__(
         self,
@@ -68,9 +69,13 @@ class WechatClient(metaclass=ClientBase):
         port: int = 5555,
         logger: Optional[TraceLogger] = None,
         loop: Optional[asyncio.AbstractEventLoop] = None,
+        timeout: int = 5,
+        heart_beat_timeout: int = 60
     ):
         self.ip = ip
         self.port = port
+        self.timeout = timeout
+        self.heart_beat_timeout = heart_beat_timeout
         self.logger = logger or logging.getLogger("wesdk")
         self.loop = loop or asyncio.get_event_loop()
         self.session = None
@@ -84,6 +89,7 @@ class WechatClient(metaclass=ClientBase):
         self._futures = {}
         self._pending_messages = Queue()
         self._communicate_task = None
+        self._check_alive_task = None
 
     async def connect(self) -> None:
         if not self.session:
@@ -91,22 +97,41 @@ class WechatClient(metaclass=ClientBase):
 
         # initial_connect = self.loop.create_future()
         self._communicate_task = self.loop.create_task(self._run_forever())
+        self._check_alive_task = self.loop.create_task(self._check_alive())
         # await initial_connect
 
+    async def _check_alive(self) -> None:
+        while True:
+            await asyncio.sleep(self.timeout)
+            if self.last_heart_beat is not None:
+                if (
+                    datetime.utcnow() - self.last_heart_beat
+                    > timedelta(seconds=self.heart_beat_timeout)
+                ):
+                    self.logger.warning("Heartbeat timeout")
+                    await self.on_heart_beat_timeout()
+
     async def _run_forever(self) -> None:
-        async with connect(f"ws://{self.ip}:{self.port}") as ws:
-            while True:
-                recv_task = asyncio.create_task(self._recv(ws))
-                send_task = asyncio.create_task(self._send(ws))
-                _, pending = await asyncio.wait(
-                    [recv_task, send_task], return_when=asyncio.FIRST_COMPLETED
-                )
-                for task in pending:
-                    task.cancel()
+        async for ws in connect(f"ws://{self.ip}:{self.port}"):
+            try:
+                while True:
+                    recv_task = asyncio.create_task(self._recv(ws))
+                    send_task = asyncio.create_task(self._send(ws))
+                    _, pending = await asyncio.wait(
+                        [recv_task, send_task], return_when=asyncio.FIRST_COMPLETED
+                    )
+                    for task in pending:
+                        task.cancel()
+            except ConnectionClosed:
+                continue
 
     async def _recv(self, ws) -> None:
         msg = await ws.recv()
-        msg = json.loads(msg)
+        try:
+            msg = json.loads(msg)
+        except json.JSONDecodeError as e:
+            self.logger.exception(e)
+            return
         # TODO: maybe recursive loads the response
         if "content" in msg and isinstance(msg["content"], str):
             try:
@@ -175,6 +200,9 @@ class WechatClient(metaclass=ClientBase):
         if self._communicate_task:
             self._communicate_task.cancel()
             self._communicate_task = None
+        if self._check_alive_task:
+            self._check_alive_task.cancel()
+            self._check_alive_task = None
 
     def getset_future(self, payload: any = None) -> Tuple[str, Awaitable]:
         msg_id = str(uuid4())
@@ -242,12 +270,12 @@ class WechatClient(metaclass=ClientBase):
         elif self.wx_name:
             self.logged_in = False
             self.logger.info(
-                f"User {self.wx_name} needs approve to re-logged in, please go to https://{self.ip}:8081/vnc.html"
+                f"User {self.wx_name} needs approve to re-logged in, please go to https://{self.ip}:8080/vnc.html"
             )
         else:
             self.logged_in = False
             self.logger.info(
-                f"No account logged in, please go to https://{self.ip}:8081/vnc.html to log in."
+                f"No account logged in, please go to https://{self.ip}:8080/vnc.html to log in."
             )
         future, _ = self._futures.pop(msg_id, (None, None))
         if future:
@@ -359,51 +387,58 @@ class WechatClient(metaclass=ClientBase):
             )
         else:
             self.logger.warning(f"Received malformatted txt cite message: {msg}")
+            
+    def manual_login(self, wxid: str, wxcode: str, wxname: str) -> None:
+        self.wx_id = wxid
+        self.wx_code = wxcode
+        self.wx_name = wxname
+        self.logged_in = True
+        self.logger.info(f"Manually login in as user {self.wx_name} ({self.wx_id}).")
 
     async def get_personal_info(self) -> Optional[WechatUser]:
         msg_id, future = self.getset_future()
         self._pending_messages.put(query.get_personal_info(msg_id))
-        return await future
+        return await asyncio.wait_for(future, self.timeout)
 
     async def get_personal_detail(
-        self, wxid: str | WechatID
+        self, wxid: Union[str, WechatID]
     ) -> Optional[WechatUserDetail]:
         msg_id, future = self.getset_future()
         self._pending_messages.put(query.get_personal_detail(wxid, msg_id))
-        return await future
+        return await asyncio.wait_for(future, self.timeout)
 
     async def get_contact_list(self) -> Iterable[WechatUser]:
         msg_id, future = self.getset_future()
         self._pending_messages.put(query.get_contact_list(msg_id))
-        return await future
+        return await asyncio.wait_for(future, self.timeout)
 
     async def get_chatroom_member(
         self, room_id: WechatID
-    ) -> list[WechatID]:
+    ) -> List[WechatID]:
         msg_id, future = self.getset_future(room_id)
         self._pending_messages.put(
             query.get_chatroom_member(roomid=room_id or "null", msg_id=msg_id)
         )
-        return await future
+        return await asyncio.wait_for(future, self.timeout)
 
     async def fetch_chatroom_members(self) -> None:
         msg_id, future = self.getset_future(None)
         self._pending_messages.put(
             query.get_chatroom_member("null", msg_id=msg_id)
         )
-        return await future
+        return await asyncio.wait_for(future, self.timeout)
 
     async def get_chatroom_member_nick(
         self, room_id: WechatID, wxid: WechatID
     ) -> Optional[ChatRoomNick]:
         msg_id, future = self.getset_future()
-        self._pending_messages.put(query.get_chatroom_member_nick("null", wxid, msg_id))
-        return await future
+        self._pending_messages.put(query.get_chatroom_member_nick(room_id, wxid, msg_id))
+        return await asyncio.wait_for(future, self.timeout)
 
     async def get_user_nick(self, wxid: WechatID) -> Optional[ChatRoomNick]:
         msg_id, future = self.getset_future()
         self._pending_messages.put(query.get_user_nick(wxid, msg_id))
-        return await future
+        return await asyncio.wait_for(future, self.timeout)
 
     async def get_user(self, wxid: WechatID) -> WechatUser:
         if wxid in self._contact_list:
@@ -419,6 +454,10 @@ class WechatClient(metaclass=ClientBase):
 
     async def on_chatroom_member_nick(self, msg) -> None:
         print(f"Received chatroom member nick: {msg}")
+
+    @abstractmethod
+    async def on_heart_beat_timeout(self) -> None:
+        print(f"Heart beat timeout, last heart beat: {self.last_heart_beat}")
 
     @abstractmethod
     async def on_at_message(self, msg) -> None:
@@ -466,15 +505,17 @@ async def send(we: WechatClient):
 
 async def test(we: WechatClient):
     info = await we.get_personal_info()
-    await we.get_contact_list()
+    # await we.get_contact_list()
     print(info)
-    print(await we.send_msg(r"c:\\users\\app\\users\\app\\Temp\\1658342210.png", "wxid_v6noi1mexlok22", "wxid_v6noi1mexlok22"))
-    # for user in await we.get_contact_list():
-    #     if user.is_chatroom:
-    #         print(user)
-    #         members  = await we.get_chatroom_member(user.wxid)
-    #         nicks = await asyncio.gather(*[we.get_chatroom_member_nick(user.wxid, m) for m in members])
-    #         print(nicks)
+    # print(await we.send_msg(r"c:\\users\\app\\users\\app\\Temp\\1658342210.png", "wxid_v6noi1mexlok22", "wxid_v6noi1mexlok22"))
+    for user in await we.get_contact_list():
+        if user.is_chatroom:
+            print(user)
+            members  = await we.get_chatroom_member(user.wxid)
+            nicks = await asyncio.gather(*[we.get_chatroom_member_nick(user.wxid, m) for m in members])
+            print(nicks)
+        else:
+            print(user)
 
 
 if __name__ == "__main__":
@@ -489,7 +530,7 @@ if __name__ == "__main__":
     logger.addHandler(handler)
 
     loop = asyncio.new_event_loop()
-    we = WechatHandler(logger=logger, loop=loop)
+    we = WechatHandler(port=5556, logger=logger, loop=loop)
     loop.create_task(we.connect())
     loop.create_task(test(we))
     loop.run_forever()

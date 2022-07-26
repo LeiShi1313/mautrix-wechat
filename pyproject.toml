@@ -4,13 +4,13 @@ build-backend = "pdm.pep517.api"
 
 [project]
 name = "mautrix-wechat"
-version = "0.0.1"
+version = "0.1.0"
 description = "A Matrix-Wechat puppeting bridge, based on https://github.com/ChisBread/wechat-box"
 authors = [
     {name = "Lei Shi", email = "me@leishi.io"},
 ]
 dependencies = [
-    "mautrix>=0.16.0",
+    "mautrix>=0.17.3",
     "attrs>=19.1",
     "yarl>=1,<2",
     "aiohttp>=3,<4",
@@ -20,6 +20,7 @@ dependencies = [
     "commonmark>=0.8,<0.10",
     "python-dateutil",
     "python-magic>=0.4.27",
+    "lxml>=4.9.1",
 ]
 requires-python = ">=3.8"
 readme = "README.md"
@@ -34,4 +35,7 @@ write_template = "__version__ = '{}'"
 [tool.pdm.dev-dependencies]
 linting = [
     "black>=22.6.0",
+]
+publish = [
+    "twine>=0.3.3",
 ]

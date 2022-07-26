@@ -1,13 +1,13 @@
-id: wechat
-as_token: RKUKxRX90uNKrAF79O-cqGs6LwxasYaxTij0D7WuWe5G6ydTUhOtpx8LnjsgmASE
-hs_token: FiT6xI15bU3cJY0uRe0MdSuoTNinLz32EUGPLTd9XOgK1RGflNqWurSsiBz3uWTr
+id: wechattest
+as_token: t4K2WSZy62Yra8QTURFWZfL9n_WPGpFZm5SJ3DTB-x73OBevWj4Vx6uyQ-RlP8HK
+hs_token: X02ijPktBqqSszPJpX7dDKUMph6-bIsox1U77qQkEenhJshHBUwmP2woUr37HvKA
 namespaces:
     users:
     - exclusive: true
-      regex: '@wechat_.*:leishi\.io'
+      regex: '@wechat_test_.*:leishi\.io'
     - exclusive: true
-      regex: '@wechatbot:leishi\.io'
+      regex: '@wechattestbot:leishi\.io'
     aliases: []
-url: http://192.168.1.13:29380
-sender_localpart: sq2H30sAC1qVAyK_yvkG172ertOqeD6vRT4VexTuMGynKqpkCguU0RhUFB5KgODl
+url: http://192.168.1.14:29380
+sender_localpart: MlJZSaUue-ETVh314n40X-77V6dNbNaPyqHRaZVjegpynhGjW1iQlwLoas3fTlpd
 rate_limited: false

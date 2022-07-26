@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 from uuid import uuid4
 
 HEART_BEAT = 5005
@@ -27,7 +28,7 @@ def uuid():
 
 
 # get_personal_info 获取登陆微信账号信息
-def get_personal_info(msg_id: str | None = None):
+def get_personal_info(msg_id: Optional[str] = None):
     qs = {
         "id": msg_id or uuid(),
         "type": PERSONAL_INFO,
@@ -38,7 +39,7 @@ def get_personal_info(msg_id: str | None = None):
 
 
 # get_personal_detail 获取微信id查询账号信息
-def get_personal_detail(wxid, msg_id: str | None = None):
+def get_personal_detail(wxid, msg_id: Optional[str] = None):
     qs = {
         "id": msg_id or uuid(),
         "type": PERSONAL_DETAIL,
@@ -49,7 +50,7 @@ def get_personal_detail(wxid, msg_id: str | None = None):
 
 
 # get_chatroom_member_nick 获取chatroom 成员昵称
-def get_chatroom_member_nick(roomid="null", wxid="null", msg_id: str | None = None):
+def get_chatroom_member_nick(roomid="null", wxid="null", msg_id: Optional[str] = None):
     if wxid == "null" and roomid == "null":
         raise ValueError("wxid和roomid不能同时为'null'")
     qs = {
@@ -61,12 +62,12 @@ def get_chatroom_member_nick(roomid="null", wxid="null", msg_id: str | None = No
     return json.dumps(qs)
 
 
-def get_user_nick(wxid, msg_id: str | None = None):
+def get_user_nick(wxid, msg_id: Optional[str] = None):
     return get_chatroom_member_nick(wxid=wxid, msg_id=msg_id)
 
 
 # get_chatroom_member 获取群的成员信息
-def get_chatroom_member(roomid="null", msg_id: str | None = None):
+def get_chatroom_member(roomid="null", msg_id: Optional[str] = None):
     qs = {
         "id": msg_id or uuid(),
         "type": CHATROOM_MEMBER,
@@ -78,7 +79,7 @@ def get_chatroom_member(roomid="null", msg_id: str | None = None):
 
 
 # get_contact_list 获取当前通讯录的wxid和roomid
-def get_contact_list(msg_id: str | None = None):
+def get_contact_list(msg_id: Optional[str] = None):
     qs = {
         "id": msg_id or uuid(),
         "type": USER_LIST,
@@ -89,12 +90,12 @@ def get_contact_list(msg_id: str | None = None):
 
 
 # get_user_list alias of get_contact_list
-def get_user_list(msg_id: str | None = None):
+def get_user_list(msg_id: Optional[str] = None):
     return get_contact_list(msg_id)
 
 
 # destroy_all .
-def destroy_all(msg_id: str | None = None):
+def destroy_all(msg_id: Optional[str] = None):
     qs = {
         "id": msg_id or uuid(),
         "type": DESTROY_ALL,
@@ -108,7 +109,7 @@ def destroy_all(msg_id: str | None = None):
 # usage:
 #    wxid, roomid任选其一时, 发送非at消息, 根据msg的形式决定具体类型
 #    wxid, roomid, nickname都存在时, 发送at消息
-def send_msg(msg, wxid="null", roomid="null", nickname="null", force_type=None, msg_id: str | None = None):
+def send_msg(msg, wxid="null", roomid="null", nickname="null", force_type=None, msg_id: Optional[str] = None):
     if not wxid:
         wxid = "null"
     if not roomid:
@@ -162,7 +163,7 @@ def send_msg(msg, wxid="null", roomid="null", nickname="null", force_type=None, 
 
 
 # debug_switch debugview调试信息开关，默认为关
-def debug_switch(msg_id: str | None = None):
+def debug_switch(msg_id: Optional[str] = None):
     qs = {
         "id": msg_id or uuid(),
         "type": DEBUG_SWITCH,

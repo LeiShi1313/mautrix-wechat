@@ -34,8 +34,8 @@ if TYPE_CHECKING:
 class Puppet(DBPuppet, BasePuppet):
     config: Config
 
-    by_wxid: dict[WechatID, "Puppet"] = {}
-    by_custom_mxid: dict[UserID, "Puppet"] = {}
+    by_wxid: Dict[WechatID, "Puppet"] = {}
+    by_custom_mxid: Dict[UserID, "Puppet"] = {}
     hs_domain: str
     mxid_template: SimpleTemplate[str]
     default_mxid_intent: IntentAPI
@@ -137,12 +137,12 @@ class Puppet(DBPuppet, BasePuppet):
         changed: bool = False
         name = None
         if chat_room_nick and chat_room_nick.nick:
-            name = chat_room_nick.nick
+            name = chat_room_nick.nick + ' (WeChat)'
         if wechat_user:
             for field in fields(WechatUser):
                 if val := getattr(wechat_user, field.name):
                     if field.name == "name":
-                        name = val
+                        name = val + ' (Wechat)'
                     elif val != getattr(self, field.name):
                         setattr(self, field.name, val)
         changed = await self._update_name(name)

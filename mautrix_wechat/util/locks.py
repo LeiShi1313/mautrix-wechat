@@ -1,4 +1,5 @@
 from asyncio import Lock
+from typing import Dict
 from collections import defaultdict
 
 from wesdk.types import WechatID
@@ -13,7 +14,7 @@ class FakeLock:
 
 
 class PortalSendLock:
-    _send_locks: dict[int, Lock]
+    _send_locks: Dict[int, Lock]
     _noop_lock: Lock = FakeLock()
 
     def __init__(self) -> None:

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from dataclasses import dataclass, field
 
@@ -16,7 +16,7 @@ class WechatUser:
     remarks: str
     wxcode: str
     wxid: WechatID
-    chat_room_members: list[WechatID] = field(default_factory=list)
+    chat_room_members: List[WechatID] = field(default_factory=list)
 
     @property
     def is_chatroom(self):

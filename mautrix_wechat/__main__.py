@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict, List
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -40,10 +40,9 @@ class WechatBridge(Bridge):
 
     db: Database
     matrix: MatrixHandler
-    wechat_handlers: list[WechatHandler]
+    wechat_handlers: List[WechatHandler]
     config: Config
     state_store: PgBridgeStateStore
-
 
     def prepare_db(self) -> None:
         super().prepare_db()
@@ -69,14 +68,29 @@ class WechatBridge(Bridge):
 
         self.wechat_handlers = []
         for box_config in self.config["wechat.boxes"]:
-            admin = box_config.get('admin')
-            ip, _, port = box_config.get('address').partition(':')
+            admin = box_config.get("admin")
+            ip, _, port = box_config.get("address").partition(":")
+            can_relay = box_config.get("can_relay", False)
+            manual_login = box_config.get("manual_login", False)
+            show_sender = box_config.get("show_sender", True)
+            info = box_config.get("info", {})
             if not port.isdigit():
-                self.log.warning(f"Not a valid box address: {box_config.get('address')}")
+                self.log.warning(
+                    f"Not a valid box address: {box_config.get('address')}"
+                )
                 continue
-            handler = WechatHandler(ip, int(port), admin, self)
+            handler = WechatHandler(
+                ip, int(port), admin, self, can_relay=can_relay, show_sender=show_sender
+            )
             self.wechat_handlers.append(handler)
-            self.add_startup_actions(handler.start())
+            # TODO: the start method may fail, should handle it
+            if manual_login:
+                if not all(info.get(k) for k in ["wxid", "wxcode", "wxname"]):
+                    self.log.warning(f"Not a valid info for manual login: {info}")
+                    continue
+                self.add_startup_actions(handler.manual_start(**info))
+            else:
+                self.add_startup_actions(handler.start())
 
         if self.config["bridge.resend_bridge_info"]:
             self.add_startup_actions(self.resend_bridge_info())
@@ -107,7 +121,7 @@ class WechatBridge(Bridge):
     async def count_logged_in_users(self) -> int:
         return len([user for user in User.by_mxid.values if user.mxid])
 
-    async def manhole_global_namespace(self, user_id: UserID) -> dict[str, Any]:
+    async def manhole_global_namespace(self, user_id: UserID) -> Dict[str, Any]:
         return {
             **await super().manhole_global_namespace(user_id),
             "User": User,

@@ -1,12 +1,17 @@
-from typing import List, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Union
 
 from mautrix.bridge import BaseMatrixHandler
-from mautrix.types import (Event, ReactionEvent, MessageEvent, StateEvent, EncryptedEvent, RoomID,
-                           EventID, UserID, ReactionEventContent, RelationType, EventType,
-                           ReceiptEvent, TypingEvent, PresenceEvent, RedactionEvent, PresenceEventContent)
+from mautrix.types import (EncryptedEvent, Event, EventID, EventType,
+                           MessageEvent, PresenceEvent, PresenceEventContent,
+                           ReactionEvent, ReactionEventContent, ReceiptEvent,
+                           RedactionEvent, RelationType, RoomID, StateEvent,
+                           TypingEvent, UserID)
 
+from mautrix_wechat import commands as com
+from mautrix_wechat import portal as po
+from mautrix_wechat import puppet as pu
+from mautrix_wechat import user as u
 from mautrix_wechat.db import Message as DBMessage
-from mautrix_wechat import commands as com, portal as po, puppet as pu, user as u
 
 if TYPE_CHECKING:
     from .__main__ import WechatBridge

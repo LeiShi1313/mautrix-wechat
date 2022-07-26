@@ -1,0 +1,27 @@
+FROM chisbread/wechat-service:latest
+
+RUN sudo apt update && sudo apt install -y python3-pip
+
+COPY root/ /
+RUN sudo mkdir -p /opt/mautrix-wechat
+COPY . /opt/mautrix-wechat
+RUN sudo chown -R app:app /opt/mautrix-wechat
+
+# intall mautrix-wechat
+RUN bash -c 'nohup /entrypoint.sh 2>&1 &' && sleep 5 && /payloads.sh \
+    && sudo rm /tmp/.X0-lock
+
+ENV HOOK_PROC_NAME=WeChat
+ENV HOOK_DLL=auto.dll
+ENV TARGET_AUTO_RESTART="yes"
+ENV INJ_CONDITION="[ \"\`sudo netstat -tunlp | grep 5555\`\" != '' ] && exit 0 ; sleep 5 ; curl 'http://127.0.0.1:8680/hi' 2>/dev/null | grep -P 'code.:0'"
+ENV TARGET_CMD=wechat-start
+ENV WECHAT_FILES_DIR="/home/app/WeChat Files"
+
+EXPOSE 8080
+EXPOSE 5555
+EXPOSE 5900
+EXPOSE 29380
+
+#settings
+ENTRYPOINT ["/mautrix-wechat-entrypoint.sh"]

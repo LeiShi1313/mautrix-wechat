@@ -59,12 +59,12 @@ class Message:
         return cls(source=source, **data)
 
     @classmethod
-    async def get_by_mxid(cls, mxid: EventID, mx_room: RoomID) -> Optional["Message"]:
+    async def get_by_mxid(cls, mxid: EventID) -> Optional["Message"]:
         q = (
             "SELECT mxid, mx_room, id, sender, source, receiver, timestamp "
-            "FROM message WHERE mxid=$1 AND mx_room=$2"
+            "FROM message WHERE mxid=$1"
         )
-        row = await cls.db.fetchrow(q, mxid, mx_room)
+        row = await cls.db.fetchrow(q, mxid)
         if not row:
             return None
         return cls(**row)
