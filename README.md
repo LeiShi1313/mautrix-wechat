@@ -25,7 +25,7 @@ And then, go to `localhost:8080/vnc.html` to finish the login step.
 ```shell
 mkdir mautrix-wechat && cd mautrix-wechat
 wget https://raw.githubusercontent.com/LeiShi1313/mautrix-wechat/main/mautrix_wechat/example-config.yaml -o config.yaml
-docker run -d --name mautrix-wechat  -v $(pwd):/app leishi1313/mautrix-wechat 
+docker run -d --name mautrix-wechat  -v $(pwd):/data leishi1313/mautrix-wechat 
 docker exec -ti mautrix-wechat python -m mautrix_wechat -g
 ```
 
