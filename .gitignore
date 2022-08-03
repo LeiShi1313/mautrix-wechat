@@ -130,6 +130,8 @@ dmypy.json
 
 .vscode/
 .idea/
+.fleet/
 *.log.*
+*.db
 config.yaml
 Wechat_Files

@@ -5,7 +5,26 @@ A Matrix-Wechat puppeting bridge, based on https://github.com/ChisBread/wechat-b
 
 ## Run wechat-service
 
-Firstly, you need to have a wechat-service (dockerized wine running Wechat Desktop with injected dll) running, to do that, simply run:
+### Run bridge bot together with wechat box
+
+If you only have one wechat account to bridge, it's recommended to run the bridge bot with wechat box in one docker container. First let's create a sample config
+```shell
+mkdir -p mautrix-wechat && cd mautrix-wechat
+wget https://raw.githubusercontent.com/LeiShi1313/mautrix-wechat/main/mautrix_wechat/example-config.yaml -o config.yaml
+```
+then edit the config to suit your homeserver, you will need to change the admin account in `wechat.boxes` section, and geenrally you don't need maunal login option so remove the other demonstration box config. Now we start the wechat box:
+
+```shell
+docker run -d --name mautrix-wechat-box -v $(pwd):/data -p 8080:8080 -p 29380:29380  leishi1313/mautrix-wechat-box
+docker exec -ti mautrix-wechat-box python -m mautrix_wechat -g
+```
+When the box is up, open `localhost:8080/vnc.html` to continue with the login process. Then copy the generated `registration.yaml` to your homeserver config, and restart your homeserver.
+
+### Run bridge bot and wecaht box seperatly 
+
+#### Run wechat box
+
+Firstly, you need to have one or multiple wechat box running, to do that:
 ```shell
 docker run -d --name wechat-service --rm  \
     -e HOOK_PROC_NAME=WeChat \
@@ -21,7 +40,10 @@ docker run -d --name wechat-service --rm  \
 
 And then, go to `localhost:8080/vnc.html` to finish the login step.
 
-## Run mautrix-wechat
+You can start as many wechat boxes as you want.
+
+#### Run mautrix-wechat
+
 ```shell
 mkdir mautrix-wechat && cd mautrix-wechat
 wget https://raw.githubusercontent.com/LeiShi1313/mautrix-wechat/main/mautrix_wechat/example-config.yaml -o config.yaml
@@ -29,7 +51,7 @@ docker run -d --name mautrix-wechat  -v $(pwd):/data leishi1313/mautrix-wechat
 docker exec -ti mautrix-wechat python -m mautrix_wechat -g
 ```
 
-Now copy the generated `registration.yaml` to your homeserver config, 
+Now copy the generated `registration.yaml` to your homeserver config, and restart your homeserver.
 
 
 # TODO:

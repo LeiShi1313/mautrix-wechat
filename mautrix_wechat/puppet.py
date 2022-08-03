@@ -38,6 +38,7 @@ class Puppet(DBPuppet, BasePuppet):
     by_custom_mxid: Dict[UserID, "Puppet"] = {}
     hs_domain: str
     mxid_template: SimpleTemplate[str]
+    displayname_template: SimpleTemplate[str]
     default_mxid_intent: IntentAPI
 
     def __init__(
@@ -86,6 +87,11 @@ class Puppet(DBPuppet, BasePuppet):
             prefix="@",
             suffix=f":{cls.hs_domain}",
             type=str,
+        )
+        cls.displayname_template = SimpleTemplate(
+            cls.config["bridge.displayname_template"],
+            "full_name",
+            type=str
         )
 
     def _postinit(self) -> None:
@@ -217,3 +223,7 @@ class Puppet(DBPuppet, BasePuppet):
     @classmethod
     def get_mxid_from_wxid(cls, wxid: WechatID, wxcode: Optional[WechatID]) -> UserID:
         return UserID(cls.mxid_template.format_full(wxcode if wxcode else wxid))
+
+    @classmethod
+    def get_displayname_from_full_name(cls, full_name: str) -> str:
+        return cls.displayname_template.format(full_name=full_name)

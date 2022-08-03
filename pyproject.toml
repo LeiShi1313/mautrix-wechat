@@ -21,6 +21,7 @@ dependencies = [
     "python-dateutil",
     "python-magic>=0.4.27",
     "lxml>=4.9.1",
+    "aiosqlite>=0.17.0",
 ]
 requires-python = ">=3.8"
 readme = "README.md"

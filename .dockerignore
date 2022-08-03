@@ -10,6 +10,7 @@ dist
 build
 .vscode
 .idea
+.fleet
 __pycache__
 __pypackages__
 mautrix-wechat.log

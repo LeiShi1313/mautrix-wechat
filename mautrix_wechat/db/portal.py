@@ -41,7 +41,7 @@ class Portal:
     async def save(self) -> None:
         q = (
             "UPDATE portal SET mxid=$3, name=$4, avatar_url=$5, encrypted=$6 "
-            "WHERE wxid=$1::text and receiver=$2::text"
+            "WHERE wxid=$1 and receiver=$2"
         )
         await self.db.execute(
             q,
@@ -54,7 +54,7 @@ class Portal:
         )
 
     async def delete(self) -> None:
-        q = "DELETE FROM portal where wxid=$1::text and receiver=$2::text"
+        q = "DELETE FROM portal where wxid=$1 and receiver=$2"
         await self.db.execute(q, self.wxid, self.receiver)
 
     @classmethod
@@ -80,7 +80,7 @@ class Portal:
     ) -> Optional["Portal"]:
         q = (
             "SELECT wxid, receiver, mxid, name, avatar_url, encrypted "
-            "FROM portal WHERE wxid=$1::text AND receiver=$2::text"
+            "FROM portal WHERE wxid=$1 AND receiver=$2"
         )
         row = await cls.db.fetchrow(q, wxid, receiver)
         if not row:

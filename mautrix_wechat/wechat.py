@@ -202,7 +202,13 @@ class WechatHandler(WechatClient):
         return await self.handle_message(msg)
 
     async def handle_message(self, msg: Message) -> None:
-        sender, portal = await self.get_msg_info(msg)
+        try:
+            self.log.info("hi, I'm here")
+            sender, portal = await self.get_msg_info(msg)
+            self.log.info("hihi, I'm here")
+        except Exception as e:
+            self.log.exception(f"Error handling message: {msg}", exc_info=True)
+            return
 
         try:
             await sender.update_info(
