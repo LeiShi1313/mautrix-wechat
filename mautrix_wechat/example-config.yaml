@@ -83,7 +83,7 @@ bridge:
   username_template: "wechat_{userid}"
   # Displayname template for Google Chat users.
   # {full_name}, {first_name}, {last_name} and {email} are replaced with names.
-  displayname_template: "{full_name} (Wechat)"
+  displayname_template: "{full_name} (Wechat {wxid})"
 
   # The prefix for commands. Only required in non-management rooms.
   command_prefix: "!we"

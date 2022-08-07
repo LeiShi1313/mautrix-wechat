@@ -122,6 +122,7 @@ class WechatClient(metaclass=ClientBase):
                     )
                     for task in pending:
                         task.cancel()
+                    await asyncio.sleep(0.1)
             except ConnectionClosed:
                 continue
 

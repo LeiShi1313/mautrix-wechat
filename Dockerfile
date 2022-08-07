@@ -29,7 +29,7 @@ RUN pip install pdm
 RUN pdm install
 
 ENV WECHAT_FILES_DIR=
-ENV PYTHONPATH=/opt/mautrix-wechat/__pypackages__/3.8/lib
+ENV PYTHONPATH=/opt/mautrix-wechat/.venv/lib/python3.8/site-packages
 EXPOSE 29380
 VOLUME /data
 

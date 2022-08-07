@@ -38,7 +38,7 @@ class Puppet(DBPuppet, BasePuppet):
     by_custom_mxid: Dict[UserID, "Puppet"] = {}
     hs_domain: str
     mxid_template: SimpleTemplate[str]
-    displayname_template: SimpleTemplate[str]
+    displayname_template: str
     default_mxid_intent: IntentAPI
 
     def __init__(
@@ -88,11 +88,7 @@ class Puppet(DBPuppet, BasePuppet):
             suffix=f":{cls.hs_domain}",
             type=str,
         )
-        cls.displayname_template = SimpleTemplate(
-            cls.config["bridge.displayname_template"],
-            "full_name",
-            type=str
-        )
+        cls.displayname_template = cls.config["bridge.displayname_template"]
 
     def _postinit(self) -> None:
         self.by_wxid[self.wxid] = self
@@ -123,7 +119,9 @@ class Puppet(DBPuppet, BasePuppet):
         if name != self.name:
             if name:
                 try:
-                    await self.default_mxid_intent.set_displayname(name)
+                    await self.default_mxid_intent.set_displayname(
+                        self.get_displayname(name, self.wxid)
+                    )
                 except Exception:
                     self.log.exception("Failed to set displayname")
                     return False
@@ -143,12 +141,12 @@ class Puppet(DBPuppet, BasePuppet):
         changed: bool = False
         name = None
         if chat_room_nick and chat_room_nick.nick:
-            name = chat_room_nick.nick + ' (WeChat)'
+            name = chat_room_nick.nick
         if wechat_user:
             for field in fields(WechatUser):
                 if val := getattr(wechat_user, field.name):
                     if field.name == "name":
-                        name = val + ' (Wechat)'
+                        name = val
                     elif val != getattr(self, field.name):
                         setattr(self, field.name, val)
         changed = await self._update_name(name)
@@ -225,5 +223,5 @@ class Puppet(DBPuppet, BasePuppet):
         return UserID(cls.mxid_template.format_full(wxcode if wxcode else wxid))
 
     @classmethod
-    def get_displayname_from_full_name(cls, full_name: str) -> str:
-        return cls.displayname_template.format(full_name=full_name)
+    def get_displayname(cls, full_name: str, wxid: str) -> str:
+        return cls.displayname_template.format(full_name=full_name, wxid=wxid)
